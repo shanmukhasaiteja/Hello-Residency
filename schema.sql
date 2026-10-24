@@ -404,3 +404,48 @@ drop policy "blocks delete own" on public.blocks;
 create policy "blocks delete own" on public.blocks for delete to authenticated using (blocker_id = (select auth.uid()));
 drop policy "reports insert own" on public.reports;
 create policy "reports insert own" on public.reports for insert to authenticated with check (reporter_id = (select auth.uid()));
+
+-- Nearby visibility: "everyone" or "connections". Visibility is mutual: two people see each other
+-- when they're connected, or when both chose "everyone".
+alter table public.checkins
+  add column visibility text not null default 'everyone' check (visibility in ('everyone', 'connections'));
+
+create or replace function public.nearby()
+returns table (user_id uuid, distance_m integer, spot text, checked_in_at timestamptz)
+language sql stable security definer set search_path = '' as $$
+  with me as (
+    select c.lat, c.lng, c.visibility from public.checkins c
+    where c.user_id = auth.uid() and c.updated_at > now() - interval '2 hours'
+  )
+  select c.user_id,
+         case when d.dist is null then null else (greatest(1, ceil(d.dist / 50.0)) * 50)::integer end,
+         c.spot,
+         c.updated_at
+  from me
+  cross join public.checkins c
+  cross join lateral (
+    select case when me.lat is null or c.lat is null then null
+      else 2 * 6371000 * asin(least(1, sqrt(
+        power(sin(radians(c.lat - me.lat) / 2), 2)
+        + cos(radians(me.lat)) * cos(radians(c.lat)) * power(sin(radians(c.lng - me.lng) / 2), 2)
+      ))) end as dist
+  ) d
+  where c.user_id <> auth.uid()
+    and c.updated_at > now() - interval '2 hours'
+    and (d.dist is null or d.dist <= 5000)
+    and (
+      (me.visibility = 'everyone' and c.visibility = 'everyone')
+      or exists (
+        select 1 from public.intros i
+        where i.status = 'accepted'
+          and ((i.from_id = auth.uid() and i.to_id = c.user_id) or (i.from_id = c.user_id and i.to_id = auth.uid()))
+      )
+    )
+    and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = c.user_id)
+         or (b.blocker_id = c.user_id and b.blocked_id = auth.uid())
+    )
+  order by d.dist nulls last, c.updated_at desc
+  limit 100;
+$$;

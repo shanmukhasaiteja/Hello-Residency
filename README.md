@@ -9,7 +9,7 @@ Stack: Vite + React + TypeScript, plain CSS tokens, Supabase (Postgres, Auth, Ro
 - **Name tags** with a photo, interests, what you're open to, an icebreaker prompt, and a private contact
 - **This or that**: five quick picks; profiles show how many you agree on, and agreements count toward matching
 - **Discover**: search, filters, "People like you", and a **match of the day** that changes at midnight
-- **Nearby**: opt-in check-in ("Library café, 2nd floor", plus optional location) that lasts 2 hours. You only see others while you're checked in yourself, and they only ever see a distance rounded to 50 m, never your coordinates. Coordinates stay in a table nobody else can read; the `nearby()` database function does the math.
+- **Nearby**: opt-in check-in ("Library café, 2nd floor", plus optional location) that lasts 2 hours. You only see others while you're checked in yourself, and they only ever see a distance rounded to 50 m, never your coordinates. Coordinates stay in a table nobody else can read; the `nearby()` database function does the math. When checking in you choose who can see you: **everyone nearby** or **only my connections**. Visibility is mutual, so a connections-only check-in also only sees connections.
 - **Say hi and Inbox**: accept or decline; contacts unlock on accept
 - **Meetups**: post, join, leave
 - **Block and report**: blocking hides two people from each other everywhere (enforced in the database). Reports are write-only for users; organizers read them in the Supabase dashboard under Table Editor, `reports`

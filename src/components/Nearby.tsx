@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import type { Intro, Profile } from '../lib/types';
+import type { CheckinVisibility, Intro, Profile } from '../lib/types';
 import { distanceLabel, relation, sharedTags, timeAgo } from '../lib/match';
 import { CHECKIN_TTL_MS, isLive, type NearbyApi } from '../hooks/useNearby';
 import { NameTag } from './NameTag';
@@ -20,12 +20,13 @@ export function Nearby({ me, profiles, intros, nearby, onOpen }: NearbyProps) {
   const live = isLive(mine);
   const [spot, setSpot] = useState(mine?.spot ?? '');
   const [useLocation, setUseLocation] = useState(true);
+  const [visibility, setVisibility] = useState<CheckinVisibility>(mine?.visibility ?? 'everyone');
   const [editing, setEditing] = useState(false);
   const byId = new Map(profiles.map((p) => [p.id, p]));
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (await checkIn(spot, useLocation)) setEditing(false);
+    if (await checkIn(spot, useLocation, visibility)) setEditing(false);
   }
 
   if (!loaded) {
@@ -48,9 +49,30 @@ export function Nearby({ me, profiles, intros, nearby, onOpen }: NearbyProps) {
           autoComplete="off"
         />
       </label>
+      <fieldset className="field visibility-choice">
+        <legend>Who can see me</legend>
+        <label className={visibility === 'everyone' ? 'vis-option vis-on' : 'vis-option'}>
+          <input type="radio" name="visibility" checked={visibility === 'everyone'} onChange={() => setVisibility('everyone')} />
+          <span>
+            <strong>
+              <span aria-hidden="true">🌍</span> Everyone nearby
+            </strong>
+            <small>Meet new people. You'll see everyone else who's open too.</small>
+          </span>
+        </label>
+        <label className={visibility === 'connections' ? 'vis-option vis-on' : 'vis-option'}>
+          <input type="radio" name="visibility" checked={visibility === 'connections'} onChange={() => setVisibility('connections')} />
+          <span>
+            <strong>
+              <span aria-hidden="true">🤝</span> Only my connections
+            </strong>
+            <small>Only people you've connected with see you, and you only see them.</small>
+          </span>
+        </label>
+      </fieldset>
       <label className="check-row">
         <input type="checkbox" checked={useLocation} onChange={(e) => setUseLocation(e.target.checked)} />
-        <span>Share my rough distance with people checked in nearby</span>
+        <span>Share my rough distance (never my exact location)</span>
       </label>
       <div className="form-actions">
         {editing && (
@@ -93,7 +115,8 @@ export function Nearby({ me, profiles, intros, nearby, onOpen }: NearbyProps) {
           </p>
           <p className="muted checkin-meta">
             {mine.spot ? `${mine.spot} · ` : ''}
-            {mine.lat !== null ? 'Sharing rough distance' : 'Place only'} · until {timeFormat.format(until)}
+            {mine.visibility === 'connections' ? 'Connections only' : 'Visible to everyone nearby'} ·{' '}
+            {mine.lat !== null ? 'rough distance' : 'place only'} · until {timeFormat.format(until)}
           </p>
         </div>
         {!editing && (
@@ -111,7 +134,11 @@ export function Nearby({ me, profiles, intros, nearby, onOpen }: NearbyProps) {
 
       <div className="section-head">
         <h2 className="section-title">
-          {visible.length === 0 ? 'Nobody else is checked in yet' : `${visible.length} ${visible.length === 1 ? 'person' : 'people'} around`}
+          {visible.length === 0
+            ? mine.visibility === 'connections'
+              ? 'None of your connections are checked in'
+              : 'Nobody else is checked in yet'
+            : `${visible.length} ${visible.length === 1 ? 'person' : 'people'} around`}
         </h2>
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => void refresh()}>
           Refresh
@@ -120,8 +147,9 @@ export function Nearby({ me, profiles, intros, nearby, onOpen }: NearbyProps) {
 
       {visible.length === 0 ? (
         <p className="muted">
-          When others check in within about 5 km, they'll show up here. Tell a friend to check in, or post a meetup so people know where
-          to find you.
+          {mine.visibility === 'connections'
+            ? "When people you've connected with check in, they'll show up here. Switch to Everyone nearby to meet someone new."
+            : "When others check in within about 5 km, they'll show up here. Tell a friend to check in, or post a meetup so people know where to find you."}
         </p>
       ) : (
         <ul className="nearby-list">

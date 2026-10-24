@@ -78,12 +78,16 @@ export type MeetupJoin = {
   user_id: string;
 }
 
+/** Who can see a check-in. Mutual: you see the same people who can see you. */
+export type CheckinVisibility = 'everyone' | 'connections';
+
 /** The signed-in user's own check-in. Nobody else can read this row. */
 export type Checkin = {
   user_id: string;
   lat: number | null;
   lng: number | null;
   spot: string | null;
+  visibility: CheckinVisibility;
   updated_at: string;
 };
 
@@ -159,7 +163,7 @@ export type Database = {
         { id: string; reporter_id: string; reported_id: string; reason: string; created_at: string },
         { reported_id: string; reason: string; reporter_id?: string }
       >;
-      checkins: Table<Checkin, Omit<Checkin, 'updated_at'> & { updated_at?: string }>;
+      checkins: Table<Checkin, Omit<Checkin, 'updated_at' | 'visibility'> & Partial<Pick<Checkin, 'updated_at' | 'visibility'>>>;
     };
     Views: { [_ in never]: never };
     Functions: {

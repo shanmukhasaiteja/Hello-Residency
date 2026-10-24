@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { friendlyError } from '../lib/errors';
-import type { Checkin, NearbyPerson } from '../lib/types';
+import type { Checkin, CheckinVisibility, NearbyPerson } from '../lib/types';
 import type { Notify } from './useData';
 
 const REFRESH_MS = 30_000;
@@ -85,7 +85,7 @@ export function useNearby(userId: string, { notify, isPaused, active }: Options)
   }, [active, refresh]);
 
   const checkIn = useCallback(
-    async (spot: string, useLocation: boolean): Promise<boolean> => {
+    async (spot: string, useLocation: boolean, visibility: CheckinVisibility): Promise<boolean> => {
       const place = spot.trim() || null;
       setBusy(true);
       try {
@@ -95,7 +95,7 @@ export function useNearby(userId: string, { notify, isPaused, active }: Options)
           notifyRef.current('Add where you are, or share your location, to check in.', 'error');
           return false;
         }
-        const { error } = await supabase.from('checkins').upsert({ user_id: userId, spot: place, ...coords });
+        const { error } = await supabase.from('checkins').upsert({ user_id: userId, spot: place, visibility, ...coords });
         if (error) {
           notifyRef.current(friendlyError(error), 'error');
           return false;

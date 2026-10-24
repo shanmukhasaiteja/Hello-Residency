@@ -574,3 +574,45 @@ body::before {
     box-shadow: 0 0 0 2px #fff, 0 0 0 4px #9a47c2;
   }
 }
+
+/* Nearby: who can see me */
+.visibility-choice {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.vis-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.vis-option input {
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  margin: 0.15rem 0 0;
+  flex-shrink: 0;
+  accent-color: #b8255f;
+}
+
+.vis-option > span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.vis-option small {
+  color: var(--soft);
+  font-size: 0.85rem;
+}
+
+.vis-on {
+  border-color: #b8255f;
+  background: #fdf0f5;
+}
