@@ -24,13 +24,20 @@ export function sharedTags(a: Profile, b: Profile): string[] {
   return b.tags.filter((t) => mine.has(t));
 }
 
-/** score = 2 * sharedTags + sharedOpenTo + sameCohort + sameProgram */
+/** This-or-that picks two people agree on. */
+export function agreements(a: Profile, b: Profile): string[] {
+  const mine = new Set(a.this_or_that);
+  return b.this_or_that.filter((x) => mine.has(x));
+}
+
+/** score = 2 * sharedTags + sharedOpenTo + sameCohort + sameProgram + 1 per 2 this-or-that agreements */
 export function score(me: Profile, other: Profile): number {
   const openTo = new Set(me.open_to);
   const sharedOpenTo = other.open_to.filter((o) => openTo.has(o)).length;
   const sameCohort = norm(me.cohort) !== '' && norm(me.cohort) === norm(other.cohort) ? 1 : 0;
   const sameProgram = norm(me.program) !== '' && norm(me.program) === norm(other.program) ? 1 : 0;
-  return 2 * sharedTags(me, other).length + sharedOpenTo + sameCohort + sameProgram;
+  const vibes = Math.floor(agreements(me, other).length / 2);
+  return 2 * sharedTags(me, other).length + sharedOpenTo + sameCohort + sameProgram + vibes;
 }
 
 /**
@@ -66,7 +73,7 @@ export function suggestions(me: Profile, people: Profile[], intros: Intro[], lim
 
 /** Lowercased text that search matches against. */
 export function searchText(p: Profile): string {
-  return [p.name, p.program, p.cohort, p.research_topic, p.bio, p.tags.join(' ')]
+  return [p.name, p.program, p.cohort, p.research_topic, p.bio, p.prompt_answer, p.tags.join(' ')]
     .filter(Boolean)
     .join(' \u0000 ')
     .toLowerCase();
@@ -97,6 +104,8 @@ export function defaultMessage(me: Profile, other: Profile): string {
   const shared = sharedTags(me, other);
   const hi = `Hi ${firstName(other.name)}, I'm ${firstName(me.name)}`;
   if (shared.length > 0) return `${hi}. I saw we're both into ${shared[0]}. Want to grab a coffee and compare notes?`;
+  if (other.prompt && other.prompt_answer)
+    return `${hi}. "${other.prompt.replace(/…$/, '')} ${other.prompt_answer}" made me smile. Want to chat sometime this week?`;
   if (other.research_topic) return `${hi}. Your work on ${other.research_topic} sounds interesting. Want to chat sometime this week?`;
   return `${hi}. Want to say hi in person sometime this week?`;
 }
@@ -169,6 +178,8 @@ export function matchReason(me: Profile, other: Profile): string {
   const shared = sharedTags(me, other);
   if (shared.length > 1) return `You both like ${shared.slice(0, -1).join(', ')} and ${shared[shared.length - 1]}.`;
   if (shared.length === 1) return `You both like ${shared[0]}.`;
+  const agree = agreements(me, other).length;
+  if (agree >= 3) return `You agree on ${agree} of 5 this-or-thats.`;
   const openTo = other.open_to.find((o) => me.open_to.includes(o));
   if (openTo) return `You're both up for: ${openTo.toLowerCase()}.`;
   if (norm(me.cohort) && norm(me.cohort) === norm(other.cohort)) return "You're in the same cohort.";

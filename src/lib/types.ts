@@ -10,6 +10,25 @@ export const OPEN_TO_OPTIONS = [
   'Just saying hi',
 ] as const;
 
+/** Icebreaker prompts a person can answer on their name tag. */
+export const PROMPTS = [
+  'Ask me about…',
+  "I'm weirdly good at…",
+  'The best spot around here is…',
+  'My most controversial opinion…',
+  'This weekend I want to…',
+  "I'll buy you a coffee if you…",
+] as const;
+
+/** This-or-that pairs. Answers are stored as the chosen option, so option names must be unique. */
+export const THIS_OR_THAT = [
+  ['Coffee', 'Tea'],
+  ['Early bird', 'Night owl'],
+  ['Mountains', 'Beach'],
+  ['Cats', 'Dogs'],
+  ['Big party', 'Small dinner'],
+] as const;
+
 export type IntroStatus = 'pending' | 'accepted' | 'declined';
 
 export type Profile = {
@@ -21,6 +40,10 @@ export type Profile = {
   bio: string | null;
   tags: string[];
   open_to: string[];
+  avatar_path: string | null;
+  prompt: string | null;
+  prompt_answer: string | null;
+  this_or_that: string[];
   created_at: string;
 }
 
@@ -84,6 +107,16 @@ export type ProfileDraft = {
   tags: string[];
   open_to: string[];
   contact: string;
+  avatar_path: string | null;
+  prompt: string;
+  prompt_answer: string;
+  this_or_that: string[];
+}
+
+export type Block = {
+  blocker_id: string;
+  blocked_id: string;
+  created_at: string;
 }
 
 export type MeetupDraft = {
@@ -104,7 +137,11 @@ type Table<Row, Insert, Update = Partial<Insert>> = {
 export type Database = {
   public: {
     Tables: {
-      profiles: Table<Profile, Omit<Profile, 'created_at'> & { created_at?: string }>;
+      profiles: Table<
+        Profile,
+        Omit<Profile, 'created_at' | 'avatar_path' | 'prompt' | 'prompt_answer' | 'this_or_that'> &
+          Partial<Pick<Profile, 'created_at' | 'avatar_path' | 'prompt' | 'prompt_answer' | 'this_or_that'>>
+      >;
       contacts: Table<Contact, Contact>;
       intros: Table<
         Intro,
@@ -116,6 +153,11 @@ export type Database = {
         Pick<Meetup, 'host_id' | 'title' | 'place' | 'when_at'> & Partial<Pick<Meetup, 'id' | 'details' | 'created_at'>>
       >;
       meetup_joins: Table<MeetupJoin, MeetupJoin>;
+      blocks: Table<Block, Pick<Block, 'blocker_id' | 'blocked_id'>>;
+      reports: Table<
+        { id: string; reporter_id: string; reported_id: string; reason: string; created_at: string },
+        { reported_id: string; reason: string; reporter_id?: string }
+      >;
       checkins: Table<Checkin, Omit<Checkin, 'updated_at'> & { updated_at?: string }>;
     };
     Views: { [_ in never]: never };

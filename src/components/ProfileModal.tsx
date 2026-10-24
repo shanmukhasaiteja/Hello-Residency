@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import type { Intro, Profile, Relation } from '../lib/types';
-import { defaultMessage, sharedTags } from '../lib/match';
+import { THIS_OR_THAT, type Intro, type Profile, type Relation } from '../lib/types';
+import { agreements, defaultMessage, sharedTags } from '../lib/match';
 import { Modal } from './Modal';
 import { NameTag } from './NameTag';
 import { ContactLine } from './ContactLine';
@@ -16,11 +16,31 @@ interface ProfileModalProps {
   contact: string | undefined;
   onSendIntro: (toId: string, message: string) => Promise<boolean>;
   onRespond: (introId: string, status: 'accepted' | 'declined', reply: string) => Promise<boolean>;
+  onBlock: (personId: string) => Promise<boolean>;
+  onReport: (personId: string, reason: string, alsoBlock: boolean) => Promise<boolean>;
   onClose: () => void;
 }
 
-export function ProfileModal({ me, person, relation, incoming, contact, onSendIntro, onRespond, onClose }: ProfileModalProps) {
+export function ProfileModal({
+  me,
+  person,
+  relation,
+  incoming,
+  contact,
+  onSendIntro,
+  onRespond,
+  onBlock,
+  onReport,
+  onClose,
+}: ProfileModalProps) {
   const shared = sharedTags(me, person);
+  const agree = new Set(agreements(me, person));
+  const theirPicks = THIS_OR_THAT.map((pair) => pair.find((o) => person.this_or_that.includes(o))).filter(
+    (o): o is NonNullable<typeof o> => !!o,
+  );
+  const [reporting, setReporting] = useState(false);
+  const [reason, setReason] = useState('');
+  const [alsoBlock, setAlsoBlock] = useState(true);
   const [message, setMessage] = useState(() => defaultMessage(me, person));
   const [reply, setReply] = useState('');
   const [busy, setBusy] = useState(false);
@@ -30,6 +50,22 @@ export function ProfileModal({ me, person, relation, incoming, contact, onSendIn
     if (!message.trim()) return;
     setBusy(true);
     await onSendIntro(person.id, message);
+    setBusy(false);
+  }
+
+  async function sendReport(e: FormEvent) {
+    e.preventDefault();
+    if (!reason.trim()) return;
+    setBusy(true);
+    const ok = await onReport(person.id, reason, alsoBlock);
+    setBusy(false);
+    if (ok) setReporting(false);
+  }
+
+  async function block() {
+    if (!window.confirm(`Block ${person.name}? You won't see each other anywhere in the app, and they won't be told.`)) return;
+    setBusy(true);
+    await onBlock(person.id);
     setBusy(false);
   }
 
@@ -50,6 +86,22 @@ export function ProfileModal({ me, person, relation, incoming, contact, onSendIn
           </p>
         )}
         {person.bio && <p className="bio">{person.bio}</p>}
+        {theirPicks.length > 0 && (
+          <div>
+            <h3 className="mini-heading">
+              This or that
+              {me.this_or_that.length > 0 && <span className="tot-score"> · you agree on {agree.size}</span>}
+            </h3>
+            <ul className="chip-row" aria-label="This or that">
+              {theirPicks.map((o) => (
+                <li key={o} className={agree.has(o) ? 'chip chip-static chip-on' : 'chip chip-static'}>
+                  {agree.has(o) && <span className="sr-only">You agree: </span>}
+                  {o}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {person.open_to.length > 0 && (
           <div>
             <h3 className="mini-heading">Open to</h3>
@@ -111,6 +163,44 @@ export function ProfileModal({ me, person, relation, incoming, contact, onSendIn
             <p className="status-note status-ok">You're connected.</p>
             <ContactLine contact={contact} />
           </div>
+        )}
+      </div>
+
+      <div className="safety">
+        {reporting ? (
+          <form onSubmit={sendReport} className="report-form">
+            <label className="field">
+              <span>What happened?</span>
+              <textarea
+                rows={3}
+                maxLength={500}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Only the organizers see reports."
+              />
+            </label>
+            <label className="check-row">
+              <input type="checkbox" checked={alsoBlock} onChange={(e) => setAlsoBlock(e.target.checked)} />
+              <span>Also block {person.name.split(' ')[0]}</span>
+            </label>
+            <div className="btn-row">
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setReporting(false)}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-danger-ghost btn-sm" disabled={busy || !reason.trim()}>
+                Send report
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <button type="button" className="link-btn link-muted" disabled={busy} onClick={block}>
+              Block
+            </button>
+            <button type="button" className="link-btn link-muted" onClick={() => setReporting(true)}>
+              Report
+            </button>
+          </>
         )}
       </div>
     </Modal>

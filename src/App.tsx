@@ -52,6 +52,9 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
   const nearby = useNearby(userId, { notify, isPaused, active: tab === 'nearby' });
 
   const me = data.profiles.find((p) => p.id === userId);
+  // People you blocked stay out of every list; people who blocked you are already hidden by RLS.
+  const blockedIds = new Set(data.blocks.map((b) => b.blocked_id));
+  const people = blockedIds.size === 0 ? data.profiles : data.profiles.filter((p) => !blockedIds.has(p.id));
   const pendingCount = data.intros.filter((i) => i.to_id === userId && i.status === 'pending').length;
 
   async function signOut() {
@@ -72,6 +75,7 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
           <ProfileForm
             profile={null}
             contact=""
+            onUploadPhoto={data.uploadPhoto}
             submitLabel="Create name tag"
             onSave={async (draft: ProfileDraft) => {
               const ok = await data.saveProfile(draft);
@@ -95,7 +99,8 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
     void data.refresh();
   }
 
-  const openPerson = openId ? data.profiles.find((p) => p.id === openId) : undefined;
+  const openPerson = openId ? people.find((p) => p.id === openId) : undefined;
+  const blockedPeople = data.profiles.filter((p) => blockedIds.has(p.id));
   const tabs: { id: Tab; label: string }[] = [
     { id: 'discover', label: 'Discover' },
     { id: 'nearby', label: 'Nearby' },
@@ -138,14 +143,14 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
       </header>
 
       <main className="content">
-        {tab === 'discover' && <Discover me={me} profiles={data.profiles} intros={data.intros} onOpen={(p) => setOpenId(p.id)} />}
+        {tab === 'discover' && <Discover me={me} profiles={people} intros={data.intros} onOpen={(p) => setOpenId(p.id)} />}
         {tab === 'nearby' && (
-          <Nearby me={me} profiles={data.profiles} intros={data.intros} nearby={nearby} onOpen={(p) => setOpenId(p.id)} />
+          <Nearby me={me} profiles={people} intros={data.intros} nearby={nearby} onOpen={(p) => setOpenId(p.id)} />
         )}
         {tab === 'inbox' && (
           <Inbox
             me={me}
-            profiles={data.profiles}
+            profiles={people}
             intros={data.intros}
             contacts={data.contacts}
             onRespond={async (id, status, reply) => {
@@ -191,6 +196,24 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
             if (ok && status === 'declined') setOpenId(null);
             return ok;
           }}
+          onBlock={async (id) => {
+            const ok = await data.block(id);
+            if (ok) {
+              setOpenId(null);
+              notify('Blocked. You can unblock them from your name tag settings.');
+            }
+            return ok;
+          }}
+          onReport={async (id, reason, alsoBlock) => {
+            const ok = await data.report(id, reason);
+            if (!ok) return false;
+            if (alsoBlock) {
+              await data.block(id);
+              setOpenId(null);
+            }
+            notify('Thanks for telling us. The organizers will take a look.');
+            return true;
+          }}
           onClose={() => setOpenId(null)}
         />
       )}
@@ -200,6 +223,7 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
           <ProfileForm
             profile={me}
             contact={data.contacts.get(me.id) ?? ''}
+            onUploadPhoto={data.uploadPhoto}
             submitLabel="Save changes"
             onCancel={() => setEditing(false)}
             onSave={async (draft) => {
@@ -211,6 +235,27 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
               return ok;
             }}
           />
+          {blockedPeople.length > 0 && (
+            <section className="blocked-list">
+              <h3 className="mini-heading">Blocked ({blockedPeople.length})</h3>
+              <ul>
+                {blockedPeople.map((p) => (
+                  <li key={p.id}>
+                    <span>{p.name}</span>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={async () => {
+                        if (await data.unblock(p.id)) notify(`Unblocked ${p.name}.`);
+                      }}
+                    >
+                      Unblock
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </Modal>
       )}
     </div>

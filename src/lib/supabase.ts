@@ -13,3 +13,11 @@ export const supabase: SupabaseClient<Database> = createClient<Database>(
   anonKey || 'missing-anon-key',
   { auth: { persistSession: true, autoRefreshToken: true } },
 );
+
+export const AVATAR_BUCKET = 'avatars';
+
+/** Public URL for a stored profile photo path, or null when there is none. */
+export function avatarUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  return supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path).data.publicUrl;
+}

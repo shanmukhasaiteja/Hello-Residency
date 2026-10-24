@@ -5,7 +5,8 @@ import type { Intro, Profile } from './types.ts';
 
 const p = (id: string, extra: Partial<Profile> = {}): Profile => ({
   id, name: `Person ${id}`, program: null, cohort: null, research_topic: null, bio: null,
-  tags: [], open_to: [], created_at: '2026-01-01T00:00:00Z', ...extra,
+  tags: [], open_to: [], avatar_path: null, prompt: null, prompt_answer: null, this_or_that: [],
+  created_at: '2026-01-01T00:00:00Z', ...extra,
 });
 const intro = (from_id: string, to_id: string, status: Intro['status']): Intro => ({
   id: `${from_id}-${to_id}`, from_id, to_id, message: 'hi', reply: null, status, created_at: '',
@@ -70,4 +71,16 @@ test('distanceLabel and timeAgo', () => {
   const now = Date.parse('2026-10-24T12:00:00Z');
   assert.equal(timeAgo('2026-10-24T11:48:00Z', now), '12 min ago');
   assert.equal(timeAgo('2026-10-24T10:30:00Z', now), '1 h ago');
+});
+
+test('this-or-that agreements add 1 point per 2 matches', () => {
+  const me = p('a', { this_or_that: ['Coffee', 'Night owl', 'Beach', 'Dogs'] });
+  assert.equal(score(me, p('b', { this_or_that: ['Coffee', 'Night owl', 'Mountains', 'Cats'] })), 1);
+  assert.equal(score(me, p('c', { this_or_that: ['Coffee', 'Night owl', 'Beach', 'Dogs'] })), 2);
+  assert.equal(score(me, p('d', { this_or_that: ['Tea'] })), 0);
+});
+
+test('defaultMessage uses the icebreaker when there is no shared tag', () => {
+  const msg = defaultMessage(p('a', { name: 'Alice' }), p('b', { name: 'Bob', prompt: "I'm weirdly good at…", prompt_answer: 'parallel parking' }));
+  assert.match(msg, /weirdly good at parallel parking/);
 });

@@ -1,9 +1,10 @@
 // The app's data layer: loads everything the signed-in user can see and wraps every write.
 // All privacy is enforced by Row Level Security; this hook only reads what RLS returns.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { AVATAR_BUCKET, supabase } from '../lib/supabase';
+import { squarePhoto } from '../lib/image';
 import { friendlyError } from '../lib/errors';
-import type { Contact, Intro, IntroStatus, Meetup, MeetupDraft, MeetupJoin, Profile, ProfileDraft } from '../lib/types';
+import type { Block, Contact, Intro, IntroStatus, Meetup, MeetupDraft, MeetupJoin, Profile, ProfileDraft } from '../lib/types';
 
 const REFRESH_MS = 30_000;
 /** Meetups that started more than this long ago are hidden. */
@@ -17,9 +18,11 @@ export interface AppData {
   contacts: Map<string, string>;
   meetups: Meetup[];
   joins: MeetupJoin[];
+  /** People the signed-in user has blocked. */
+  blocks: Block[];
 }
 
-const EMPTY: AppData = { profiles: [], intros: [], contacts: new Map(), meetups: [], joins: [] };
+const EMPTY: AppData = { profiles: [], intros: [], contacts: new Map(), meetups: [], joins: [], blocks: [] };
 
 interface Options {
   notify: Notify;
@@ -36,6 +39,9 @@ export function useData(userId: string, { notify, isPaused }: Options) {
   const [data, setData] = useState<AppData>(EMPTY);
   const [loaded, setLoaded] = useState(false);
   const inFlight = useRef(false);
+  // Set when a refresh is asked for mid-flight (usually right after a write). The running
+  // refresh then discards its possibly stale result and another one runs straight after.
+  const queued = useRef(false);
   const notifyRef = useRef(notify);
   notifyRef.current = notify;
 
@@ -44,18 +50,22 @@ export function useData(userId: string, { notify, isPaused }: Options) {
     return false;
   }, []);
 
-  const refresh = useCallback(async () => {
-    if (inFlight.current) return;
+  const refresh = useCallback(async (): Promise<void> => {
+    if (inFlight.current) {
+      queued.current = true;
+      return;
+    }
     inFlight.current = true;
     try {
       const cutoff = new Date(Date.now() - MEETUP_GRACE_MS).toISOString();
-      const [profiles, intros, contacts, meetups] = await Promise.all([
+      const [profiles, intros, contacts, meetups, blocks] = await Promise.all([
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
         supabase.from('intros').select('*').order('created_at', { ascending: false }),
         supabase.from('contacts').select('*'),
         supabase.from('meetups').select('*').gte('when_at', cutoff).order('when_at', { ascending: true }),
+        supabase.from('blocks').select('*'),
       ]);
-      const firstError = profiles.error ?? intros.error ?? contacts.error ?? meetups.error;
+      const firstError = profiles.error ?? intros.error ?? contacts.error ?? meetups.error ?? blocks.error;
       if (firstError) {
         fail(firstError, "Couldn't load the latest data. Pull to refresh or try again.");
         return;
@@ -70,20 +80,28 @@ export function useData(userId: string, { notify, isPaused }: Options) {
         }
         joins = res.data ?? [];
       }
+      if (queued.current) return;
       setData({
         profiles: profiles.data ?? [],
         intros: intros.data ?? [],
         contacts: new Map((contacts.data ?? []).map((c: Contact) => [c.user_id, c.contact])),
         meetups: meetups.data ?? [],
         joins,
+        blocks: blocks.data ?? [],
       });
       setLoaded(true);
     } catch (error) {
       fail(error);
     } finally {
       inFlight.current = false;
+      if (queued.current) {
+        queued.current = false;
+        void refreshRef.current();
+      }
     }
   }, [fail]);
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
 
   // Initial load, a 30s poll, and a refresh when the tab becomes visible again.
   const pausedRef = useRef(isPaused);
@@ -116,7 +134,12 @@ export function useData(userId: string, { notify, isPaused }: Options) {
         bio: orNull(draft.bio),
         tags: draft.tags,
         open_to: draft.open_to,
+        avatar_path: draft.avatar_path,
+        prompt: draft.prompt_answer.trim() ? draft.prompt : null,
+        prompt_answer: orNull(draft.prompt_answer),
+        this_or_that: draft.this_or_that,
       };
+      const previousPhoto = data.profiles.find((p) => p.id === userId)?.avatar_path ?? null;
       const { data: saved, error } = await supabase.from('profiles').upsert(row).select().single();
       if (error) return fail(error);
 
@@ -125,6 +148,8 @@ export function useData(userId: string, { notify, isPaused }: Options) {
         ? await supabase.from('contacts').upsert({ user_id: userId, contact })
         : await supabase.from('contacts').delete().eq('user_id', userId);
       if (contactResult.error) return fail(contactResult.error);
+      // Best effort: remove the old photo once the new one is saved.
+      if (previousPhoto && previousPhoto !== row.avatar_path) void supabase.storage.from(AVATAR_BUCKET).remove([previousPhoto]);
 
       // Update local state right away so the badge reflects the change immediately.
       setData((d) => {
@@ -135,6 +160,57 @@ export function useData(userId: string, { notify, isPaused }: Options) {
         const profiles = exists ? d.profiles.map((p) => (p.id === userId ? saved : p)) : [saved, ...d.profiles];
         return { ...d, profiles, contacts };
       });
+      return true;
+    },
+    [userId, fail, data.profiles],
+  );
+
+  /** Uploads a resized photo and returns its storage path; the profile save records it. */
+  const uploadPhoto = useCallback(
+    async (file: File): Promise<string | null> => {
+      try {
+        const blob = await squarePhoto(file);
+        const path = `${userId}/${Date.now().toString(36)}.jpg`;
+        const { error } = await supabase.storage.from(AVATAR_BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
+        if (error) {
+          fail(error, "Your photo didn't upload. Try again.");
+          return null;
+        }
+        return path;
+      } catch (error) {
+        fail(error);
+        return null;
+      }
+    },
+    [userId, fail],
+  );
+
+  const block = useCallback(
+    async (otherId: string): Promise<boolean> => {
+      const { error } = await supabase.from('blocks').insert({ blocker_id: userId, blocked_id: otherId });
+      if (error && error.code !== '23505') return fail(error);
+      setData((d) => ({ ...d, blocks: [...d.blocks, { blocker_id: userId, blocked_id: otherId, created_at: new Date().toISOString() }] }));
+      void refresh();
+      return true;
+    },
+    [userId, fail, refresh],
+  );
+
+  const unblock = useCallback(
+    async (otherId: string): Promise<boolean> => {
+      const { error } = await supabase.from('blocks').delete().match({ blocker_id: userId, blocked_id: otherId });
+      if (error) return fail(error);
+      setData((d) => ({ ...d, blocks: d.blocks.filter((b) => b.blocked_id !== otherId) }));
+      void refresh();
+      return true;
+    },
+    [userId, fail, refresh],
+  );
+
+  const report = useCallback(
+    async (otherId: string, reason: string): Promise<boolean> => {
+      const { error } = await supabase.from('reports').insert({ reporter_id: userId, reported_id: otherId, reason: reason.trim() });
+      if (error) return fail(error);
       return true;
     },
     [userId, fail],
@@ -235,6 +311,10 @@ export function useData(userId: string, { notify, isPaused }: Options) {
     loaded,
     refresh,
     saveProfile,
+    uploadPhoto,
+    block,
+    unblock,
+    report,
     sendIntro,
     respondIntro,
     postMeetup,
