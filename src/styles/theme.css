@@ -574,3 +574,9 @@ body::before {
     box-shadow: 0 0 0 2px #fff, 0 0 0 4px #9a47c2;
   }
 }
+
+.forgot-link {
+  align-self: flex-end;
+  font-size: 0.88rem;
+  margin-top: 0.25rem;
+}

@@ -56,6 +56,14 @@ src/
 - Profiles load in pages of 1000 (Supabase's per-request cap), then each 30 s poll downloads only profiles whose `updated_at` changed, plus a full reload every 10 minutes. Contacts and intros are fetched only for the signed-in user. Discover draws cards in batches as you scroll.
 - Tested with 1,200 profiles on a simulated mid-range phone: first cards in about 1 s, search in about 0.4 s, and about 7 KB per background poll.
 
+## Password reset emails
+
+"Forgot password?" on the sign-in screen emails a reset link that opens the app on a "Choose a new password" screen. For the emails to go out:
+
+1. **Authentication → URL Configuration:** set Site URL to the live address (`https://hello-residency.vercel.app`) and add `https://hello-residency.vercel.app/**` to Redirect URLs (add `http://localhost:5173/**` for local development).
+2. **Authentication → Emails → SMTP Settings:** turn on custom SMTP with an email provider (Supabase's built-in sender only allows about 2 emails an hour).
+3. **Authentication → Rate Limits:** once custom SMTP is on, raise "Rate limit for sending emails" (for example to 100 an hour).
+
 ## Before a big event
 
 - **Supabase plan:** the free plan includes 5 GB of data transfer a month and pauses after a week of inactivity. With 1000 people active all day, polling alone is roughly 6 GB a day, so switch to the Pro plan for the event.
