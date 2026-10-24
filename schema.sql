@@ -50,6 +50,14 @@ create index on public.intros (to_id);
 create index on public.intros (from_id);
 create index on public.meetups (when_at);
 
+-- Data API access. Signed-in users only; RLS below decides which rows.
+revoke all on public.profiles, public.contacts, public.intros, public.meetups, public.meetup_joins from anon;
+grant select, insert, update on public.profiles to authenticated;
+grant select, insert, update, delete on public.contacts to authenticated;
+grant select, insert on public.intros to authenticated;
+grant select, insert, delete on public.meetups to authenticated;
+grant select, insert, delete on public.meetup_joins to authenticated;
+
 -- Row Level Security (required)
 
 alter table public.profiles enable row level security;
