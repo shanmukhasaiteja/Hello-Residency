@@ -299,3 +299,108 @@ grant select, insert, delete on public.meetup_joins to authenticated;
 grant select, insert, update, delete on public.checkins to authenticated;
 grant select, insert, delete on public.blocks to authenticated;
 grant insert on public.reports to authenticated;
+
+-- Scale: 1000+ users.
+-- 1. Policies call (select auth.uid()) so Postgres evaluates it once per query, not once per row.
+-- 2. "Who blocked me" is computed once per query instead of once per profile row.
+-- 3. profiles.updated_at lets clients download only profiles that changed since their last sync.
+-- 4. Indexes for the remaining foreign keys.
+
+alter table public.profiles add column updated_at timestamptz not null default now();
+create index profiles_updated_at_idx on public.profiles (updated_at);
+
+create function public.touch_updated_at() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  new.updated_at := now();
+  return new;
+end $$;
+create trigger profiles_touch before insert or update on public.profiles
+  for each row execute function public.touch_updated_at();
+
+create index meetup_joins_user_id_idx on public.meetup_joins (user_id);
+create index meetups_host_id_idx on public.meetups (host_id);
+create index reports_reported_id_idx on public.reports (reported_id);
+create index reports_reporter_id_idx on public.reports (reporter_id);
+
+-- Everyone who has blocked the caller, as one array.
+create function public.who_blocked_me() returns uuid[]
+language sql stable security definer set search_path = '' as $$
+  select coalesce(array_agg(b.blocker_id), '{}') from public.blocks b where b.blocked_id = auth.uid();
+$$;
+revoke execute on function public.who_blocked_me() from public, anon;
+grant execute on function public.who_blocked_me() to authenticated;
+
+-- profiles
+drop policy "profiles read" on public.profiles;
+create policy "profiles read" on public.profiles for select to authenticated
+  using (id = (select auth.uid()) or not (id = any ((select public.who_blocked_me())::uuid[])));
+drop policy "profiles insert own" on public.profiles;
+create policy "profiles insert own" on public.profiles for insert to authenticated with check (id = (select auth.uid()));
+drop policy "profiles update own" on public.profiles;
+create policy "profiles update own" on public.profiles for update to authenticated
+  using (id = (select auth.uid())) with check (id = (select auth.uid()));
+
+-- contacts
+drop policy "contacts read" on public.contacts;
+create policy "contacts read" on public.contacts for select to authenticated using (
+  user_id = (select auth.uid())
+  or (
+    not public.blocked_either((select auth.uid()), contacts.user_id)
+    and exists (
+      select 1 from public.intros i
+      where i.status = 'accepted'
+        and ((i.from_id = (select auth.uid()) and i.to_id = contacts.user_id)
+          or (i.to_id = (select auth.uid()) and i.from_id = contacts.user_id))
+    )
+  )
+);
+drop policy "contacts insert own" on public.contacts;
+create policy "contacts insert own" on public.contacts for insert to authenticated with check (user_id = (select auth.uid()));
+drop policy "contacts update own" on public.contacts;
+create policy "contacts update own" on public.contacts for update to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+drop policy "contacts delete own" on public.contacts;
+create policy "contacts delete own" on public.contacts for delete to authenticated using (user_id = (select auth.uid()));
+
+-- intros
+drop policy "intros read" on public.intros;
+create policy "intros read" on public.intros for select to authenticated
+  using ((from_id = (select auth.uid()) or to_id = (select auth.uid())) and not public.blocked_either(from_id, to_id));
+drop policy "intros send" on public.intros;
+create policy "intros send" on public.intros for insert to authenticated
+  with check (from_id = (select auth.uid()) and status = 'pending' and not public.blocked_either(from_id, to_id));
+drop policy "intros respond" on public.intros;
+create policy "intros respond" on public.intros for update to authenticated
+  using (to_id = (select auth.uid())) with check (to_id = (select auth.uid()));
+
+-- meetups and joins
+drop policy "meetups insert" on public.meetups;
+create policy "meetups insert" on public.meetups for insert to authenticated with check (host_id = (select auth.uid()));
+drop policy "meetups delete" on public.meetups;
+create policy "meetups delete" on public.meetups for delete to authenticated using (host_id = (select auth.uid()));
+drop policy "joins insert" on public.meetup_joins;
+create policy "joins insert" on public.meetup_joins for insert to authenticated with check (user_id = (select auth.uid()));
+drop policy "joins delete" on public.meetup_joins;
+create policy "joins delete" on public.meetup_joins for delete to authenticated using (user_id = (select auth.uid()));
+
+-- checkins
+drop policy "checkins read own" on public.checkins;
+create policy "checkins read own" on public.checkins for select to authenticated using (user_id = (select auth.uid()));
+drop policy "checkins insert own" on public.checkins;
+create policy "checkins insert own" on public.checkins for insert to authenticated with check (user_id = (select auth.uid()));
+drop policy "checkins update own" on public.checkins;
+create policy "checkins update own" on public.checkins for update to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+drop policy "checkins delete own" on public.checkins;
+create policy "checkins delete own" on public.checkins for delete to authenticated using (user_id = (select auth.uid()));
+
+-- blocks and reports
+drop policy "blocks read own" on public.blocks;
+create policy "blocks read own" on public.blocks for select to authenticated using (blocker_id = (select auth.uid()));
+drop policy "blocks insert own" on public.blocks;
+create policy "blocks insert own" on public.blocks for insert to authenticated with check (blocker_id = (select auth.uid()));
+drop policy "blocks delete own" on public.blocks;
+create policy "blocks delete own" on public.blocks for delete to authenticated using (blocker_id = (select auth.uid()));
+drop policy "reports insert own" on public.reports;
+create policy "reports insert own" on public.reports for insert to authenticated with check (reporter_id = (select auth.uid()));

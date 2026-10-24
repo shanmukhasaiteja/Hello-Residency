@@ -7,6 +7,10 @@ import { friendlyError } from '../lib/errors';
 import type { Block, Contact, Intro, IntroStatus, Meetup, MeetupDraft, MeetupJoin, Profile, ProfileDraft } from '../lib/types';
 
 const REFRESH_MS = 30_000;
+const REFRESH_JITTER_MS = 5_000;
+/** Supabase returns at most 1000 rows per request, so profiles are loaded in pages of this size. */
+const PAGE_SIZE = 1000;
+const FULL_SYNC_MS = 10 * 60 * 1000;
 /** Meetups that started more than this long ago are hidden. */
 const MEETUP_GRACE_MS = 3 * 60 * 60 * 1000;
 
@@ -50,6 +54,47 @@ export function useData(userId: string, { notify, isPaused }: Options) {
     return false;
   }, []);
 
+  // Profiles are the only large dataset. Load them in pages once, then every poll fetches only
+  // rows whose updated_at moved. A full reload every few minutes picks up deletions and blocks.
+  const profileMap = useRef(new Map<string, Profile>());
+  const lastSync = useRef<string | null>(null);
+  const lastFull = useRef(0);
+
+  const syncProfiles = useCallback(async (): Promise<{ list: Profile[] | null; error: unknown }> => {
+    const full = lastSync.current === null || Date.now() - lastFull.current > FULL_SYNC_MS;
+    let map: Map<string, Profile>;
+    if (full) {
+      map = new Map();
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const page = await supabase.from('profiles').select('*').order('id').range(from, from + PAGE_SIZE - 1);
+        if (page.error) return { list: null, error: page.error };
+        for (const row of page.data ?? []) map.set(row.id, row);
+        if ((page.data ?? []).length < PAGE_SIZE) break;
+      }
+      lastFull.current = Date.now();
+    } else {
+      const changed = await supabase
+        .from('profiles')
+        .select('*')
+        .gte('updated_at', lastSync.current!)
+        .order('updated_at')
+        .limit(PAGE_SIZE);
+      if (changed.error) return { list: null, error: changed.error };
+      const rows = changed.data ?? [];
+      if (rows.length >= PAGE_SIZE) lastFull.current = 0; // Too many changes; do a full load next time.
+      const fresh = rows.filter((r) => profileMap.current.get(r.id)?.updated_at !== r.updated_at);
+      if (fresh.length === 0) return { list: null, error: null }; // Nothing changed: keep the current list.
+      map = new Map(profileMap.current);
+      for (const row of fresh) map.set(row.id, row);
+    }
+    profileMap.current = map;
+    let newest = lastSync.current ?? '';
+    for (const p of map.values()) if (p.updated_at > newest) newest = p.updated_at;
+    lastSync.current = newest || null;
+    const list = [...map.values()].sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
+    return { list, error: null };
+  }, []);
+
   const refresh = useCallback(async (): Promise<void> => {
     if (inFlight.current) {
       queued.current = true;
@@ -58,37 +103,44 @@ export function useData(userId: string, { notify, isPaused }: Options) {
     inFlight.current = true;
     try {
       const cutoff = new Date(Date.now() - MEETUP_GRACE_MS).toISOString();
-      const [profiles, intros, contacts, meetups, blocks] = await Promise.all([
-        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-        supabase.from('intros').select('*').order('created_at', { ascending: false }),
-        supabase.from('contacts').select('*'),
+      const [profiles, intros, meetups, blocks] = await Promise.all([
+        syncProfiles(),
+        supabase
+          .from('intros')
+          .select('*')
+          .or(`from_id.eq.${userId},to_id.eq.${userId}`)
+          .order('created_at', { ascending: false }),
         supabase.from('meetups').select('*').gte('when_at', cutoff).order('when_at', { ascending: true }),
-        supabase.from('blocks').select('*'),
+        supabase.from('blocks').select('*').eq('blocker_id', userId),
       ]);
-      const firstError = profiles.error ?? intros.error ?? contacts.error ?? meetups.error ?? blocks.error;
+      const firstError = profiles.error ?? intros.error ?? meetups.error ?? blocks.error;
       if (firstError) {
         fail(firstError, "Couldn't load the latest data. Pull to refresh or try again.");
         return;
       }
+
+      // Only ask for contacts that can be visible: your own and your connections'.
+      const contactIds = new Set([userId]);
+      for (const i of intros.data ?? []) if (i.status === 'accepted') contactIds.add(i.from_id === userId ? i.to_id : i.from_id);
       const meetupIds = (meetups.data ?? []).map((m) => m.id);
-      let joins: MeetupJoin[] = [];
-      if (meetupIds.length > 0) {
-        const res = await supabase.from('meetup_joins').select('*').in('meetup_id', meetupIds);
-        if (res.error) {
-          fail(res.error);
-          return;
-        }
-        joins = res.data ?? [];
+      const [contacts, joinsRes] = await Promise.all([
+        supabase.from('contacts').select('*').in('user_id', [...contactIds]),
+        meetupIds.length > 0 ? supabase.from('meetup_joins').select('*').in('meetup_id', meetupIds) : Promise.resolve(null),
+      ]);
+      const secondError = contacts.error ?? joinsRes?.error;
+      if (secondError) {
+        fail(secondError);
+        return;
       }
       if (queued.current) return;
-      setData({
-        profiles: profiles.data ?? [],
+      setData((d) => ({
+        profiles: profiles.list ?? d.profiles,
         intros: intros.data ?? [],
         contacts: new Map((contacts.data ?? []).map((c: Contact) => [c.user_id, c.contact])),
         meetups: meetups.data ?? [],
-        joins,
+        joins: joinsRes?.data ?? [],
         blocks: blocks.data ?? [],
-      });
+      }));
       setLoaded(true);
     } catch (error) {
       fail(error);
@@ -99,26 +151,34 @@ export function useData(userId: string, { notify, isPaused }: Options) {
         void refreshRef.current();
       }
     }
-  }, [fail]);
+  }, [fail, syncProfiles, userId]);
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
 
-  // Initial load, a 30s poll, and a refresh when the tab becomes visible again.
+  // Initial load, a poll every ~30s (jittered so a room full of phones doesn't hit the
+  // server in lockstep), and a refresh when the tab becomes visible again.
   const pausedRef = useRef(isPaused);
   pausedRef.current = isPaused;
   useEffect(() => {
     setData(EMPTY);
     setLoaded(false);
+    profileMap.current = new Map();
+    lastSync.current = null;
     void refresh();
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible' && !pausedRef.current()) void refresh();
-    }, REFRESH_MS);
+    let timer = 0;
+    const schedule = () => {
+      timer = window.setTimeout(() => {
+        if (document.visibilityState === 'visible' && !pausedRef.current()) void refresh();
+        schedule();
+      }, REFRESH_MS + Math.random() * REFRESH_JITTER_MS);
+    };
+    schedule();
     const onVisible = () => {
       if (document.visibilityState === 'visible' && !pausedRef.current()) void refresh();
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [userId, refresh]);
@@ -171,7 +231,11 @@ export function useData(userId: string, { notify, isPaused }: Options) {
       try {
         const blob = await squarePhoto(file);
         const path = `${userId}/${Date.now().toString(36)}.jpg`;
-        const { error } = await supabase.storage.from(AVATAR_BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
+        const { error } = await supabase.storage.from(AVATAR_BUCKET).upload(path, blob, {
+          contentType: 'image/jpeg',
+          // Each upload gets a new file name, so phones can cache photos for a year.
+          cacheControl: '31536000',
+        });
         if (error) {
           fail(error, "Your photo didn't upload. Try again.");
           return null;

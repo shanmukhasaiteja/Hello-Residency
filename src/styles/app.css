@@ -1598,3 +1598,7 @@ textarea {
   gap: 1rem;
   padding: 0.35rem 0;
 }
+
+.grid-more {
+  grid-column: 1 / -1;
+}

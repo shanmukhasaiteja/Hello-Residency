@@ -15,6 +15,8 @@ import { NameTag } from './components/NameTag';
 import { ProfileForm } from './components/ProfileForm';
 import { ProfileModal } from './components/ProfileModal';
 import { Toasts, useToasts } from './components/Toast';
+import { Icon } from './components/Icon';
+import { celebrate } from './lib/celebrate';
 
 type Tab = 'discover' | 'nearby' | 'inbox' | 'meetups';
 
@@ -112,7 +114,10 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
     <div className="shell">
       <header className="topbar">
         <div className="topbar-inner">
-          <span className="logo">Hello Residency</span>
+          <span className="logo">
+            <span className="logo-mark" aria-hidden="true" />
+            Hello Residency
+          </span>
           <div className="topbar-actions">
             <button type="button" className="me-btn" onClick={() => setEditing(true)} aria-label="Edit your name tag">
               <NameTag profile={me} size="mini" />
@@ -131,7 +136,8 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
               aria-current={tab === t.id ? 'page' : undefined}
               onClick={() => switchTab(t.id)}
             >
-              {t.label}
+              <Icon name={t.id} />
+              <span className="tab-label">{t.label}</span>
               {t.id === 'inbox' && pendingCount > 0 && (
                 <span className="badge" aria-label={`${pendingCount} waiting`}>
                   {pendingCount}
@@ -156,6 +162,7 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
             onRespond={async (id, status, reply) => {
               const ok = await data.respondIntro(id, status, reply);
               if (ok) notify(status === 'accepted' ? "Connected. You can now see each other's contact." : 'Got it. They won’t be notified.');
+              if (ok && status === 'accepted') celebrate();
               return ok;
             }}
             onOpen={(p) => setOpenId(p.id)}
@@ -187,12 +194,16 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
           contact={data.contacts.get(openPerson.id)}
           onSendIntro={async (toId, message) => {
             const ok = await data.sendIntro(toId, message);
-            if (ok) notify('Hi sent.');
+            if (ok) {
+              notify('Hi sent.');
+              celebrate();
+            }
             return ok;
           }}
           onRespond={async (id, status, reply) => {
             const ok = await data.respondIntro(id, status, reply);
             if (ok) notify(status === 'accepted' ? "Connected. You can now see each other's contact." : 'Got it. They won’t be notified.');
+              if (ok && status === 'accepted') celebrate();
             if (ok && status === 'declined') setOpenId(null);
             return ok;
           }}

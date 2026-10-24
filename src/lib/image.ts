@@ -1,7 +1,8 @@
-// Shrinks a chosen photo to a 512 px square JPEG in the browser, so uploads stay small
+// Shrinks a chosen photo to a 256 px square JPEG in the browser (enough for the largest
+// 72 px avatar on a 3x screen, at ~15 KB), so uploads and downloads stay small
 // and any metadata in the original file (like GPS) is dropped.
 
-const SIZE = 512;
+const SIZE = 256;
 const MAX_INPUT_BYTES = 15 * 1024 * 1024;
 
 export async function squarePhoto(file: File): Promise<Blob> {
@@ -22,6 +23,6 @@ export async function squarePhoto(file: File): Promise<Blob> {
   ctx.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, SIZE, SIZE);
   bitmap.close();
   return new Promise((resolve, reject) =>
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Couldn't process that photo."))), 'image/jpeg', 0.85),
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Couldn't process that photo."))), 'image/jpeg', 0.82),
   );
 }

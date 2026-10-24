@@ -37,11 +37,26 @@ export function AuthCard() {
   return (
     <main className="auth-wrap">
       <div className="auth-intro">
-        <div className="brand-mark" aria-hidden="true">
-          <span className="nametag-slot" />
+        <div className="hero-tags" aria-hidden="true">
+          <HeroTag name="Priya" topic="Coral reefs" band="linear-gradient(120deg, #0B7A7C, #0E8F7E)" tilt={-8} />
+          <HeroTag name="Jonas" topic="Quantum codes" band="linear-gradient(120deg, #9A47C2, #D6336C)" tilt={5} />
+          <HeroTag name="Amara" topic="Sleep & memory" band="linear-gradient(120deg, #F4B63F, #F7894A)" dark tilt={-3} />
         </div>
-        <h1>Hello Residency</h1>
+        <h1>
+          Hello <span className="gradient-text">Residency</span>
+        </h1>
         <p className="lead">Find the people you came here to meet. Make a name tag, see who shares your interests, and say hi.</p>
+        <ul className="hero-points">
+          <li>
+            <span aria-hidden="true">✨</span> Smart matches
+          </li>
+          <li>
+            <span aria-hidden="true">📍</span> Who's nearby
+          </li>
+          <li>
+            <span aria-hidden="true">☕</span> Casual meetups
+          </li>
+        </ul>
       </div>
       <form className="card auth-card" onSubmit={submit} noValidate>
         <h2>{signup ? 'Create your account' : 'Welcome back'}</h2>
@@ -94,5 +109,20 @@ export function AuthCard() {
         </p>
       </form>
     </main>
+  );
+}
+
+function HeroTag({ name, topic, band, tilt, dark }: { name: string; topic: string; band: string; tilt: number; dark?: boolean }) {
+  return (
+    <div className="hero-tag" style={{ transform: `rotate(${tilt}deg)` }}>
+      <div className="hero-tag-band" style={{ background: band, color: dark ? '#15233B' : '#fff' }}>
+        <span className="nametag-slot" />
+        Hello, I'm
+      </div>
+      <div className="hero-tag-body">
+        <strong>{name}</strong>
+        <span>{topic}</span>
+      </div>
+    </div>
   );
 }

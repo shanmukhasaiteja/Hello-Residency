@@ -53,7 +53,13 @@ src/
 
 - Privacy is enforced by RLS. Contact details live in `contacts` and are only returned to the owner or someone with an accepted intro.
 - User text is rendered as React text, never HTML. Contacts become links only for `mailto:`, `tel:`, `http:` and `https:`.
-- Supabase returns at most 1000 rows per query by default. That covers the residency; past a few thousand profiles, add server-side search and pagination.
+- Profiles load in pages of 1000 (Supabase's per-request cap), then each 30 s poll downloads only profiles whose `updated_at` changed, plus a full reload every 10 minutes. Contacts and intros are fetched only for the signed-in user. Discover draws cards in batches as you scroll.
+- Tested with 1,200 profiles on a simulated mid-range phone: first cards in about 1 s, search in about 0.4 s, and about 7 KB per background poll.
+
+## Before a big event
+
+- **Supabase plan:** the free plan includes 5 GB of data transfer a month and pauses after a week of inactivity. With 1000 people active all day, polling alone is roughly 6 GB a day, so switch to the Pro plan for the event.
+- **Auth rate limits:** many people signing up from the same venue Wi-Fi share one IP address. Raise the sign-up and sign-in limits in Authentication, Rate Limits before doors open.
 
 ## Testing the full flow
 

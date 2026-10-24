@@ -1,5 +1,5 @@
 import type { Profile } from '../lib/types';
-import { bandColor } from '../lib/match';
+import { bandColor, tagColor } from '../lib/match';
 import { Avatar } from './Avatar';
 
 type TagProfile = Pick<Profile, 'name' | 'program' | 'cohort' | 'research_topic' | 'tags'> &
@@ -16,15 +16,15 @@ const AVATAR_SIZE = { full: 72, card: 52, mini: 30 } as const;
 
 /** The conference name tag: lanyard slot, colored band, "Hello, I'm", photo and the name. */
 export function NameTag({ profile, size = 'card', highlight = [] }: NameTagProps) {
-  const { bg, fg } = bandColor(profile);
+  const { bg, fg, gradient } = bandColor(profile);
   const shared = new Set(highlight);
   const meta = [profile.program, profile.cohort].filter(Boolean).join(' · ');
   const tags = size === 'card' ? profile.tags.slice(0, 4) : profile.tags;
   const avatarProfile = { ...profile, avatar_path: profile.avatar_path ?? null };
 
   return (
-    <div className={`nametag nametag-${size}`}>
-      <div className="nametag-band" style={{ background: bg, color: fg }}>
+    <div className={`nametag nametag-${size}`} style={{ ['--band' as string]: bg }}>
+      <div className="nametag-band" style={{ background: gradient, color: fg }}>
         <span className="nametag-slot" aria-hidden="true" />
         <span className="nametag-hello">Hello, I'm</span>
       </div>
@@ -50,8 +50,17 @@ export function NameTag({ profile, size = 'card', highlight = [] }: NameTagProps
         {size !== 'mini' && tags.length > 0 && (
           <ul className="tag-list" aria-label="Interests">
             {tags.map((t) => (
-              <li key={t} className={shared.has(t) ? 'tag tag-shared' : 'tag'}>
-                {shared.has(t) && <span className="sr-only">Shared: </span>}
+              <li
+                key={t}
+                className={shared.has(t) ? 'tag tag-shared' : 'tag'}
+                style={shared.has(t) ? undefined : { background: tagColor(t).bg, color: tagColor(t).fg }}
+              >
+                {shared.has(t) && (
+                  <>
+                    <span aria-hidden="true">✓ </span>
+                    <span className="sr-only">Shared: </span>
+                  </>
+                )}
                 {t}
               </li>
             ))}

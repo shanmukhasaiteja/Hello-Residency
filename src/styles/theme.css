@@ -1,0 +1,576 @@
+/* Colorful theme layered over app.css: gradients, colored chips, bottom tab bar, confetti.
+   Text on every gradient keeps at least 4.5:1 contrast (3:1 for large bold band text). */
+
+:root {
+  --violet: #6b4c9a;
+  --pink: #d6336c;
+  --sun: #f4b63f;
+  --sky: #3b6fe0;
+  --brand: linear-gradient(120deg, #0b7a7c 0%, #6b4c9a 55%, #d6336c 100%);
+  --button: linear-gradient(120deg, #5b3f8c 0%, #b8255f 100%);
+  --button-hover: linear-gradient(120deg, #6b4c9a 0%, #c92c69 100%);
+}
+
+/* ---------- Page ---------- */
+
+body {
+  background: var(--paper);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(600px 400px at 0% 0%, rgba(11, 122, 124, 0.14), transparent 70%),
+    radial-gradient(500px 380px at 100% 10%, rgba(214, 51, 108, 0.12), transparent 70%),
+    radial-gradient(700px 500px at 50% 110%, rgba(244, 182, 63, 0.16), transparent 70%),
+    radial-gradient(500px 400px at 100% 80%, rgba(107, 76, 154, 0.12), transparent 70%);
+}
+
+.gradient-text {
+  background: var(--brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- Buttons ---------- */
+
+.btn-primary {
+  background: var(--button);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(184, 37, 95, 0.25);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--button-hover);
+  box-shadow: 0 6px 18px rgba(184, 37, 95, 0.32);
+}
+
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+/* ---------- Chips ---------- */
+
+.chip:hover {
+  border-color: var(--violet);
+}
+
+.chip-on,
+.chip-on:hover {
+  background: var(--button);
+  border-color: transparent;
+  color: #fff;
+}
+
+.chip-tag {
+  color: #56378a;
+  background: #f4effb;
+  border-color: #e2d8f2;
+}
+
+.chip-tag.chip-on {
+  background: linear-gradient(120deg, #0b7a7c, #0a6466);
+  color: #fff;
+}
+
+.chip-static.chip-on {
+  background: #ddf3f0;
+  border-color: #0b7a7c;
+  color: #0a4f51;
+}
+
+.tag {
+  font-weight: 500;
+}
+
+.tag-shared {
+  background: linear-gradient(120deg, #0b7a7c, #0a6466);
+  border-color: transparent;
+  color: #fff;
+}
+
+/* ---------- Name tags ---------- */
+
+.nametag {
+  border-color: color-mix(in srgb, var(--band, #d3dae5) 22%, #ffffff);
+}
+
+.nametag-band {
+  position: relative;
+  overflow: hidden;
+}
+
+/* A soft sheen across each band. */
+.nametag-band::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.18) 45%, transparent 60%);
+  pointer-events: none;
+}
+
+.nametag-hello {
+  font-size: 1.2rem;
+}
+
+.nametag-topic {
+  color: color-mix(in srgb, var(--band, #0b7a7c) 80%, #15233b);
+}
+
+.person-card {
+  box-shadow: 0 2px 4px rgba(21, 35, 59, 0.05), 0 8px 22px color-mix(in srgb, var(--card-tint, #6b4c9a) 12%, transparent);
+}
+
+.person-card:hover {
+  transform: translateY(-3px) rotate(-0.6deg);
+  box-shadow: 0 4px 8px rgba(21, 35, 59, 0.06), 0 16px 32px rgba(107, 76, 154, 0.18);
+}
+
+.status {
+  border-top-style: dashed;
+}
+
+.status-none {
+  color: #b8255f;
+}
+
+.status-incoming {
+  color: var(--violet);
+  background: #f4effb;
+}
+
+.status-connected {
+  background: #e5f4ea;
+}
+
+/* ---------- Header, logo and tabs ---------- */
+
+.topbar {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.logo-mark {
+  position: relative;
+  width: 22px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--brand);
+  flex-shrink: 0;
+}
+
+.logo-mark::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  right: 6px;
+  height: 3px;
+  border-radius: 2px;
+  background: #fff;
+}
+
+.icon {
+  flex-shrink: 0;
+}
+
+.tab {
+  border-radius: 999px;
+  border-bottom: 0;
+}
+
+.tab-on {
+  color: #fff;
+  background: var(--button);
+}
+
+.tab-on:hover {
+  color: #fff;
+}
+
+.badge {
+  background: var(--pink);
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* Phones: an app-style tab bar pinned to the bottom of the screen. */
+@media (max-width: 719px) {
+  /* backdrop-filter would make the header the containing block for the fixed tab bar. */
+  .topbar {
+    backdrop-filter: none;
+    background: rgba(255, 255, 255, 0.97);
+  }
+
+  .tabs {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    max-width: none;
+    margin: 0;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -6px 20px rgba(21, 35, 59, 0.08);
+  }
+
+  .tab,
+  .tab:hover {
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 54px;
+    padding: 6px 2px;
+    font-size: 0.74rem;
+    border-radius: 14px;
+  }
+
+  .tab-on,
+  .tab-on:hover {
+    background: none;
+    color: #b8255f;
+  }
+
+  .tab-on .icon {
+    background: var(--button);
+    color: #fff;
+    border-radius: 999px;
+    padding: 3px 14px;
+    width: 52px;
+    height: 28px;
+  }
+
+  .tab .badge {
+    position: absolute;
+    top: 2px;
+    left: calc(50% + 8px);
+  }
+
+  .content {
+    padding-bottom: 110px;
+  }
+
+  .toasts {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+
+  .topbar-inner {
+    padding-bottom: 0.6rem;
+  }
+}
+
+@media (min-width: 720px) {
+  .tabs {
+    padding-bottom: 0.6rem;
+    gap: 0.4rem;
+  }
+
+  .tab {
+    min-height: 40px;
+    padding: 0.4rem 1rem;
+  }
+}
+
+/* ---------- Section titles ---------- */
+
+.section-title {
+  font-size: 1.25rem;
+}
+
+/* ---------- Match of the day ---------- */
+
+.motd {
+  background: linear-gradient(135deg, #1d1446 0%, #4a2470 50%, #8e1f55 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.motd::before {
+  content: '';
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  right: -80px;
+  top: -120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(244, 182, 63, 0.35), transparent 70%);
+  pointer-events: none;
+}
+
+.motd > * {
+  position: relative;
+}
+
+.motd .btn-primary {
+  background: #fff;
+  color: #4a2470;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+/* ---------- Auth hero ---------- */
+
+.auth-wrap {
+  padding-top: 1.5rem;
+}
+
+.hero-tags {
+  position: relative;
+  height: 150px;
+  margin: 0 0 1rem;
+}
+
+.hero-tag {
+  position: absolute;
+  width: 150px;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 26px rgba(21, 35, 59, 0.16);
+  animation: float 6s ease-in-out infinite;
+}
+
+.hero-tag:nth-child(1) {
+  left: 0;
+  top: 18px;
+}
+
+.hero-tag:nth-child(2) {
+  left: 30%;
+  top: 0;
+  z-index: 1;
+  animation-delay: -2s;
+}
+
+.hero-tag:nth-child(3) {
+  right: 0;
+  top: 30px;
+  animation-delay: -4s;
+}
+
+.hero-tag-band {
+  position: relative;
+  padding: 1.2rem 0.75rem 0.4rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.hero-tag-band .nametag-slot {
+  top: 0.4rem;
+  width: 26px;
+  height: 6px;
+  margin-left: -13px;
+}
+
+.hero-tag-body {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0.75rem 0.7rem;
+  font-size: 0.8rem;
+  color: var(--soft);
+}
+
+.hero-tag-body strong {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+
+@keyframes float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -8px;
+  }
+}
+
+.hero-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.hero-points li {
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.auth-card {
+  border: 0;
+  box-shadow: 0 16px 40px rgba(107, 76, 154, 0.16);
+}
+
+/* ---------- Meetups ---------- */
+
+.meetup {
+  border-top: 4px solid var(--accent, var(--violet));
+}
+
+.meetup-top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.date-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 52px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.date-month {
+  width: 100%;
+  text-align: center;
+  background: var(--accent, var(--violet));
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 0;
+}
+
+.date-day {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.35rem;
+  line-height: 1.3;
+}
+
+.meetup-when {
+  color: var(--ink);
+}
+
+.pill {
+  background: var(--pink);
+}
+
+/* ---------- Nearby ---------- */
+
+.pulse,
+.pulse::after {
+  background: var(--pink);
+  border-color: var(--pink);
+}
+
+.pulse::after {
+  background: none;
+}
+
+.checkin-status {
+  background: linear-gradient(120deg, #fdf0f5, #f4effb);
+  border-color: #e7c6dc;
+}
+
+.nearby-distance {
+  color: #b8255f;
+}
+
+/* ---------- Toasts ---------- */
+
+.toast-ok {
+  background: linear-gradient(120deg, #1c7a4a, #0b7a7c);
+}
+
+/* ---------- Confetti ---------- */
+
+.confetti {
+  position: fixed;
+  left: 50%;
+  top: 45%;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.confetti span {
+  position: absolute;
+  width: 9px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: confetti 1.1s cubic-bezier(0.15, 0.6, 0.35, 1) forwards;
+}
+
+@keyframes confetti {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--x), calc(var(--y) + 140px)) rotate(var(--r));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-tag {
+    animation: none;
+  }
+
+  .person-card:hover {
+    transform: none;
+  }
+}
+
+/* Emoji + label inside chips: flex items drop the space between them, so use a gap. */
+.chip {
+  gap: 0.4rem;
+}
+
+/* Phones: the header badge shrinks to just your photo, so the logo has room. */
+@media (max-width: 479px) {
+  .me-btn .nametag-mini {
+    border: 0;
+    background: none;
+  }
+
+  .me-btn .nametag-band,
+  .me-btn .nametag-body {
+    display: none;
+  }
+
+  .me-btn .nametag-mini-avatar {
+    padding: 0;
+  }
+
+  .me-btn .avatar {
+    width: 38px !important;
+    height: 38px !important;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #9a47c2;
+  }
+}

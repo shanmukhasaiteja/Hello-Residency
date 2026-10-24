@@ -1,7 +1,10 @@
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { OPEN_TO_OPTIONS, type Intro, type Profile, type Relation } from '../lib/types';
-import { matchesQuery, matchOfTheDay, matchReason, popularTags, relation, searchText, sharedTags, suggestions } from '../lib/match';
+import { OPEN_TO_EMOJI, matchesQuery, matchOfTheDay, matchReason, popularTags, relation, searchText, sharedTags, suggestions } from '../lib/match';
 import { NameTag } from './NameTag';
+
+/** Cards are drawn in batches as you scroll, so 1000+ people stay smooth on a phone. */
+const BATCH = 48;
 
 const STATUS_LABEL: Record<Relation, string> = {
   none: 'Say hi',
@@ -33,6 +36,9 @@ export function Discover({ me, profiles, intros, onOpen }: DiscoverProps) {
   }, [others, intros, me.id]);
 
   const filtering = deferredQuery !== '' || openTo !== null || tag !== null;
+  const [shown, setShown] = useState(BATCH);
+  const sentinel = useRef<HTMLLIElement>(null);
+  useEffect(() => setShown(BATCH), [deferredQuery, openTo, tag]);
   const today = new Date().toDateString();
   const match = useMemo(() => (filtering ? null : matchOfTheDay(me, others, intros, new Date(today))), [filtering, me, others, intros, today]);
   const likeYou = useMemo(
@@ -100,7 +106,7 @@ export function Discover({ me, profiles, intros, onOpen }: DiscoverProps) {
               aria-pressed={openTo === o}
               onClick={() => setOpenTo(openTo === o ? null : o)}
             >
-              {o}
+              <span aria-hidden="true">{OPEN_TO_EMOJI[o]}</span> {o}
             </button>
           ))}
         </div>
@@ -124,7 +130,9 @@ export function Discover({ me, profiles, intros, onOpen }: DiscoverProps) {
       {match && (
         <div className="motd">
           <div className="motd-text">
-            <p className="motd-label">Your match of the day</p>
+            <p className="motd-label">
+              <span aria-hidden="true">🎯</span> Your match of the day
+            </p>
             <h2 className="motd-name">{match.name}</h2>
             <p className="motd-reason">{matchReason(me, match)}</p>
             <button type="button" className="btn btn-primary" onClick={() => onOpen(match)}>
@@ -140,7 +148,9 @@ export function Discover({ me, profiles, intros, onOpen }: DiscoverProps) {
 
       {likeYou.length > 0 && (
         <>
-          <h2 className="section-title">People like you</h2>
+          <h2 className="section-title">
+            <span aria-hidden="true">✨</span> People like you
+          </h2>
           <ul className="grid">{likeYou.map(card)}</ul>
         </>
       )}
@@ -149,7 +159,14 @@ export function Discover({ me, profiles, intros, onOpen }: DiscoverProps) {
         {filtering ? `${results.length} ${results.length === 1 ? 'match' : 'matches'}` : `Everyone (${others.length})`}
       </h2>
       {results.length > 0 ? (
-        <ul className="grid">{results.map(card)}</ul>
+        <ul className="grid">
+          {results.slice(0, shown).map(card)}
+          {shown < results.length && (
+            <li ref={sentinel} className="grid-more">
+              <LoadMore onMore={() => setShown((n) => n + BATCH)} remaining={results.length - shown} target={sentinel} />
+            </li>
+          )}
+        </ul>
       ) : (
         <div className="empty empty-inline">
           <p>No one matches that yet. Try a shorter search or clear the filters.</p>
@@ -186,6 +203,26 @@ function CopyLinkButton() {
       }}
     >
       {copied ? 'Link copied' : 'Copy link'}
+    </button>
+  );
+}
+
+/** Loads the next batch when it scrolls into view; the button covers keyboard and no-observer cases. */
+function LoadMore({ onMore, remaining, target }: { onMore: () => void; remaining: number; target: RefObject<HTMLLIElement | null> }) {
+  const onMoreRef = useRef(onMore);
+  onMoreRef.current = onMore;
+  useEffect(() => {
+    const el = target.current;
+    if (!el || !('IntersectionObserver' in window)) return;
+    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && onMoreRef.current(), {
+      rootMargin: '600px 0px',
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [target, remaining]);
+  return (
+    <button type="button" className="btn btn-ghost btn-block" onClick={onMore}>
+      Show more ({remaining} left)
     </button>
   );
 }

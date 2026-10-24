@@ -6,7 +6,7 @@ import type { Intro, Profile } from './types.ts';
 const p = (id: string, extra: Partial<Profile> = {}): Profile => ({
   id, name: `Person ${id}`, program: null, cohort: null, research_topic: null, bio: null,
   tags: [], open_to: [], avatar_path: null, prompt: null, prompt_answer: null, this_or_that: [],
-  created_at: '2026-01-01T00:00:00Z', ...extra,
+  created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', ...extra,
 });
 const intro = (from_id: string, to_id: string, status: Intro['status']): Intro => ({
   id: `${from_id}-${to_id}`, from_id, to_id, message: 'hi', reply: null, status, created_at: '',

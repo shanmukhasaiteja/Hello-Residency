@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { THIS_OR_THAT, type Intro, type Profile, type Relation } from '../lib/types';
-import { agreements, defaultMessage, sharedTags } from '../lib/match';
+import { OPEN_TO_EMOJI, agreements, defaultMessage, sharedTags } from '../lib/match';
 import { Modal } from './Modal';
 import { NameTag } from './NameTag';
 import { ContactLine } from './ContactLine';
@@ -108,7 +108,7 @@ export function ProfileModal({
             <ul className="chip-row" aria-label="Open to">
               {person.open_to.map((o) => (
                 <li key={o} className={me.open_to.includes(o) ? 'chip chip-static chip-on' : 'chip chip-static'}>
-                  {o}
+                  <span aria-hidden="true">{OPEN_TO_EMOJI[o]}</span> {o}
                 </li>
               ))}
             </ul>

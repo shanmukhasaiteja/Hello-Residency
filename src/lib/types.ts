@@ -45,6 +45,7 @@ export type Profile = {
   prompt_answer: string | null;
   this_or_that: string[];
   created_at: string;
+  updated_at: string;
 }
 
 export type Contact = {
@@ -139,8 +140,8 @@ export type Database = {
     Tables: {
       profiles: Table<
         Profile,
-        Omit<Profile, 'created_at' | 'avatar_path' | 'prompt' | 'prompt_answer' | 'this_or_that'> &
-          Partial<Pick<Profile, 'created_at' | 'avatar_path' | 'prompt' | 'prompt_answer' | 'this_or_that'>>
+        Omit<Profile, 'created_at' | 'updated_at' | 'avatar_path' | 'prompt' | 'prompt_answer' | 'this_or_that'> &
+          Partial<Pick<Profile, 'created_at' | 'updated_at' | 'avatar_path' | 'prompt' | 'prompt_answer' | 'this_or_that'>>
       >;
       contacts: Table<Contact, Contact>;
       intros: Table<

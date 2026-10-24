@@ -112,14 +112,56 @@ export function defaultMessage(me: Profile, other: Profile): string {
 
 export const BAND_COLORS = ['#0B7A7C', '#F4B63F', '#6B4C9A', '#B93A4C', '#2F5DA8'] as const;
 
-/** Badge band color, chosen by hashing cohort, falling back to program, then name. */
-export function bandColor(p: Pick<Profile, 'cohort' | 'program' | 'name'>): { bg: string; fg: string } {
-  const key = norm(p.cohort) || norm(p.program) || norm(p.name);
+/** Second gradient stop for each band. "Hello, I'm" is large bold text, so 3:1 contrast holds across the gradient. */
+const BAND_GRADIENT_END: Record<(typeof BAND_COLORS)[number], string> = {
+  '#0B7A7C': '#0E8F7E',
+  '#F4B63F': '#F7894A',
+  '#6B4C9A': '#9A47C2',
+  '#B93A4C': '#D6336C',
+  '#2F5DA8': '#3B6FE0',
+};
+
+function hashKey(key: string): number {
   let h = 0;
   for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
-  const bg = BAND_COLORS[h % BAND_COLORS.length];
-  return { bg, fg: bg === '#F4B63F' ? '#15233B' : '#FFFFFF' };
+  return h;
 }
+
+/** Badge band color, chosen by hashing cohort, falling back to program, then name. */
+export function bandColor(p: Pick<Profile, 'cohort' | 'program' | 'name'>): { bg: string; fg: string; gradient: string } {
+  const key = norm(p.cohort) || norm(p.program) || norm(p.name);
+  const bg = BAND_COLORS[hashKey(key) % BAND_COLORS.length];
+  return {
+    bg,
+    fg: bg === '#F4B63F' ? '#15233B' : '#FFFFFF',
+    gradient: `linear-gradient(120deg, ${bg} 0%, ${BAND_GRADIENT_END[bg]} 100%)`,
+  };
+}
+
+/** Pastel chip colors with dark text (all at least 4.5:1). */
+const TAG_COLORS = [
+  { bg: '#DDF3F0', fg: '#0A5C5E' },
+  { bg: '#FDEBC8', fg: '#7A4A00' },
+  { bg: '#ECE3F8', fg: '#56378A' },
+  { bg: '#FCE1E7', fg: '#952B45' },
+  { bg: '#DFE9FB', fg: '#21468A' },
+  { bg: '#DFF3E4', fg: '#1B6338' },
+  { bg: '#FFE3D3', fg: '#8F3B12' },
+] as const;
+
+/** Each tag keeps the same color everywhere it appears. */
+export function tagColor(tag: string): { bg: string; fg: string } {
+  return TAG_COLORS[hashKey(tag) % TAG_COLORS.length];
+}
+
+export const OPEN_TO_EMOJI: Record<string, string> = {
+  'Coffee chat': '☕',
+  'Study buddy': '📚',
+  'Research collab': '🔬',
+  'Writing partner': '✍️',
+  'Feedback swap': '🔁',
+  'Just saying hi': '👋',
+};
 
 const EMAIL_RE = /^[^\s@<>()]+@[^\s@<>()]+\.[^\s@<>()]+$/;
 const PHONE_RE = /^\+?[\d\s().-]{7,20}$/;

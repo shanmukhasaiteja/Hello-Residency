@@ -17,6 +17,10 @@ interface MeetupsProps {
 }
 
 const whenFormat = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+const monthFormat = new Intl.DateTimeFormat(undefined, { month: 'short' });
+const dayFormat = new Intl.DateTimeFormat(undefined, { day: 'numeric' });
+const timeFormat = new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+const MEETUP_ACCENTS = ['#0B7A7C', '#9A47C2', '#D6336C', '#3B6FE0', '#C25E00'];
 
 /** Value for a datetime-local input, in local time. */
 function toLocalInput(date: Date): string {
@@ -71,13 +75,27 @@ export function Meetups({ me, profiles, meetups, joins, onPost, onJoin, onLeave,
             const names = going.slice(0, MAX_NAMES).map((p) => (p.id === me.id ? 'You' : firstName(p.name)));
             const extra = going.length - names.length;
             return (
-              <li key={m.id} className="card meetup">
-                <div className="meetup-when">
-                  {started && <span className="pill">Happening now</span>}
-                  <time dateTime={m.when_at}>{whenFormat.format(new Date(m.when_at))}</time>
+              <li
+                key={m.id}
+                className="card meetup"
+                style={{ ['--accent' as string]: MEETUP_ACCENTS[m.id.charCodeAt(0) % MEETUP_ACCENTS.length] }}
+              >
+                <div className="meetup-top">
+                  <div className="date-badge" aria-hidden="true">
+                    <span className="date-month">{monthFormat.format(new Date(m.when_at))}</span>
+                    <span className="date-day">{dayFormat.format(new Date(m.when_at))}</span>
+                  </div>
+                  <div className="meetup-when">
+                    {started && <span className="pill">Happening now</span>}
+                    <time dateTime={m.when_at} title={whenFormat.format(new Date(m.when_at))}>
+                      {timeFormat.format(new Date(m.when_at))}
+                    </time>
+                  </div>
                 </div>
                 <h3 className="meetup-title">{m.title}</h3>
-                <p className="meetup-place">{m.place}</p>
+                <p className="meetup-place">
+                  <span aria-hidden="true">📍</span> {m.place}
+                </p>
                 {m.details && <p className="meetup-details">{m.details}</p>}
                 <p className="meetup-meta">
                   Hosted by {isHost ? 'you' : host?.name ?? 'someone'} · {going.length} going

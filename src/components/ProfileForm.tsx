@@ -1,6 +1,6 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { OPEN_TO_OPTIONS, PROMPTS, THIS_OR_THAT, type Profile, type ProfileDraft } from '../lib/types';
-import { MAX_TAGS, parseTags } from '../lib/match';
+import { MAX_TAGS, OPEN_TO_EMOJI, parseTags } from '../lib/match';
 import { NameTag } from './NameTag';
 
 const BIO_MAX = 400;
@@ -146,7 +146,7 @@ export function ProfileForm({ profile, contact, onSave, onUploadPhoto, onCancel,
                 aria-pressed={openTo.includes(o)}
                 onClick={() => toggleOpenTo(o)}
               >
-                {o}
+                <span aria-hidden="true">{OPEN_TO_EMOJI[o]}</span> {o}
               </button>
             ))}
           </div>
