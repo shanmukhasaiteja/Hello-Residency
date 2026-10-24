@@ -19,10 +19,6 @@ export function friendlyError(error: unknown, fallback = 'Something went wrong. 
   if (lower.includes('weak password')) return 'That password is too easy to guess. Try a longer one.';
   if (lower.includes('email not confirmed')) return 'This email is not confirmed yet. Ask the organizer to turn off "Confirm email" in Supabase, or check your inbox.';
   if (lower.includes('unable to validate email') || lower.includes('invalid email')) return 'That email address looks off. Check it and try again.';
-  if (lower.includes('error sending recovery email') || lower.includes('error sending'))
-    return "We couldn't send the email right now. Try again in a few minutes, or ask the organizers for help.";
-  if (lower.includes('should be different from the old password') || e.code === 'same_password')
-    return "That's your current password. Pick a different one.";
   if (lower.includes('rate limit') || e.code === 'over_email_send_rate_limit') return 'Too many attempts right now. Wait a minute and try again.';
   if (lower.includes('failed to fetch') || lower.includes('network')) return "Can't reach the server. Check your connection and try again.";
   if (lower.includes('jwt') && lower.includes('expired')) return 'Your session expired. Sign in again.';

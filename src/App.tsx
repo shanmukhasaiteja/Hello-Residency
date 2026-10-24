@@ -6,7 +6,6 @@ import { useSession } from './hooks/useSession';
 import { useData, type Notify } from './hooks/useData';
 import { useNearby } from './hooks/useNearby';
 import { AuthCard } from './components/AuthCard';
-import { SetPassword } from './components/SetPassword';
 import { Discover } from './components/Discover';
 import { Inbox } from './components/Inbox';
 import { Meetups } from './components/Meetups';
@@ -22,23 +21,13 @@ import { celebrate } from './lib/celebrate';
 type Tab = 'discover' | 'nearby' | 'inbox' | 'meetups';
 
 export default function App() {
-  const { session, recovering, doneRecovering } = useSession();
+  const session = useSession();
   const { toasts, notify, dismiss } = useToasts();
 
   let content;
   if (!isConfigured) content = <SetupNotice />;
   else if (session === undefined) content = <Loading />;
   else if (session === null) content = <AuthCard />;
-  else if (recovering)
-    content = (
-      <SetPassword
-        email={session.user.email ?? ''}
-        onDone={() => {
-          doneRecovering();
-          notify('Password updated. Welcome back!');
-        }}
-      />
-    );
   else content = <Shell key={session.user.id} userId={session.user.id} email={session.user.email ?? ''} notify={notify} />;
 
   return (

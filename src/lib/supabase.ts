@@ -4,12 +4,6 @@ import type { Database } from './types';
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-/**
- * True when the page was opened from a password reset email. Read before the client below
- * starts, because the client removes the token from the address bar once it signs the user in.
- */
-export const openedFromRecoveryLink = typeof window !== 'undefined' && /(^|[#&?])type=recovery(&|$)/.test(window.location.hash);
-
 /** True when the env vars are present; the app shows setup help otherwise. */
 export const isConfigured = Boolean(url && anonKey);
 
