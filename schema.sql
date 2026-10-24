@@ -509,3 +509,19 @@ begin
 end $$;
 create trigger messages_before_insert before insert on public.messages
   for each row execute function public.messages_before_insert();
+
+-- Helper functions used by RLS policies live in a schema the Data API doesn't expose, so
+-- nobody can call them directly (e.g. to learn who blocked them, or who is connected to whom).
+-- Policies reference functions by OID, so they keep working after the move.
+create schema if not exists private;
+revoke all on schema private from public, anon;
+grant usage on schema private to authenticated;
+
+alter function public.who_blocked_me() set schema private;
+alter function public.blocked_me(uuid) set schema private;
+alter function public.blocked_either(uuid, uuid) set schema private;
+alter function public.are_connected(uuid, uuid) set schema private;
+alter function public.messages_before_insert() set schema private;
+
+-- Trigger functions never need to be called directly.
+revoke execute on function private.messages_before_insert() from public, anon, authenticated;
