@@ -4,17 +4,19 @@ import { relation } from './lib/match';
 import type { ProfileDraft } from './lib/types';
 import { useSession } from './hooks/useSession';
 import { useData, type Notify } from './hooks/useData';
+import { useNearby } from './hooks/useNearby';
 import { AuthCard } from './components/AuthCard';
 import { Discover } from './components/Discover';
 import { Inbox } from './components/Inbox';
 import { Meetups } from './components/Meetups';
+import { Nearby } from './components/Nearby';
 import { Modal } from './components/Modal';
 import { NameTag } from './components/NameTag';
 import { ProfileForm } from './components/ProfileForm';
 import { ProfileModal } from './components/ProfileModal';
 import { Toasts, useToasts } from './components/Toast';
 
-type Tab = 'discover' | 'inbox' | 'meetups';
+type Tab = 'discover' | 'nearby' | 'inbox' | 'meetups';
 
 export default function App() {
   const session = useSession();
@@ -47,6 +49,7 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
   const modalOpen = openId !== null || editing;
   const isPaused = useCallback(() => modalOpen || isTyping(), [modalOpen]);
   const data = useData(userId, { notify, isPaused });
+  const nearby = useNearby(userId, { notify, isPaused, active: tab === 'nearby' });
 
   const me = data.profiles.find((p) => p.id === userId);
   const pendingCount = data.intros.filter((i) => i.to_id === userId && i.status === 'pending').length;
@@ -95,6 +98,7 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
   const openPerson = openId ? data.profiles.find((p) => p.id === openId) : undefined;
   const tabs: { id: Tab; label: string }[] = [
     { id: 'discover', label: 'Discover' },
+    { id: 'nearby', label: 'Nearby' },
     { id: 'inbox', label: 'Inbox' },
     { id: 'meetups', label: 'Meetups' },
   ];
@@ -135,6 +139,9 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
 
       <main className="content">
         {tab === 'discover' && <Discover me={me} profiles={data.profiles} intros={data.intros} onOpen={(p) => setOpenId(p.id)} />}
+        {tab === 'nearby' && (
+          <Nearby me={me} profiles={data.profiles} intros={data.intros} nearby={nearby} onOpen={(p) => setOpenId(p.id)} />
+        )}
         {tab === 'inbox' && (
           <Inbox
             me={me}

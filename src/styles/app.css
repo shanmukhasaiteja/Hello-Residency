@@ -359,6 +359,7 @@ textarea {
 
 .nametag {
   background: var(--card);
+  color: var(--ink);
   border-radius: var(--radius);
   overflow: hidden;
   border: 1px solid var(--line);
@@ -1172,5 +1173,250 @@ textarea {
 
   .person-card:hover {
     transform: none;
+  }
+}
+
+/* ---------- Match of the day ---------- */
+
+.motd {
+  display: grid;
+  gap: 1rem;
+  align-items: center;
+  margin: 1.25rem 0 0.5rem;
+  padding: 1.1rem;
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: #fff;
+  box-shadow: var(--shadow-lift);
+}
+
+@media (min-width: 640px) {
+  .motd {
+    grid-template-columns: 1fr minmax(240px, 300px);
+    padding: 1.5rem;
+  }
+}
+
+.motd-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #f4b63f;
+  margin: 0 0 0.25rem;
+}
+
+.motd-name {
+  font-size: clamp(1.5rem, 5vw, 2rem);
+  margin: 0 0 0.35rem;
+}
+
+.motd-reason {
+  color: #d3dae5;
+}
+
+.motd .btn-primary {
+  background: #fff;
+  color: var(--ink);
+}
+
+.motd .btn-primary:hover {
+  background: var(--paper);
+}
+
+.motd .btn-primary:focus-visible,
+.motd-tag:focus-visible {
+  outline-color: #f4b63f;
+}
+
+.motd-foot {
+  font-size: 0.8rem;
+  color: #a9b4c6;
+  margin: 0.6rem 0 0;
+}
+
+.motd-tag {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: var(--radius);
+  transform: rotate(-2deg);
+  transition: transform 0.15s;
+}
+
+.motd-tag:hover {
+  transform: rotate(0deg);
+}
+
+/* ---------- Nearby ---------- */
+
+.nearby-intro {
+  text-align: center;
+  max-width: 480px;
+  margin: 1.5rem auto 1.25rem;
+}
+
+.pulse {
+  position: relative;
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--teal);
+  margin-bottom: 0.75rem;
+}
+
+.pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--teal);
+  animation: ping 1.8s ease-out infinite;
+}
+
+.pulse-sm {
+  width: 10px;
+  height: 10px;
+  margin: 0 0.35rem 0 0;
+  vertical-align: middle;
+}
+
+@keyframes ping {
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+.checkin-form {
+  max-width: 520px;
+  margin: 0 auto 1rem;
+}
+
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.92rem;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+}
+
+.check-row input {
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  margin: 0.1rem 0 0;
+  flex-shrink: 0;
+  accent-color: var(--teal);
+}
+
+.checkin-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.5rem 0 1rem;
+  border-color: var(--teal);
+  background: var(--teal-tint);
+}
+
+.checkin-live {
+  font-weight: 700;
+  margin: 0;
+}
+
+.checkin-meta {
+  font-size: 0.88rem;
+  margin: 0.15rem 0 0;
+}
+
+.nearby-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+@media (min-width: 720px) {
+  .nearby-list {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+}
+
+.nearby-item {
+  display: grid;
+  grid-template-columns: minmax(0, auto) 1fr;
+  grid-template-areas:
+    'tag tag'
+    'info chip';
+  gap: 0.6rem 0.75rem;
+  align-items: center;
+  width: 100%;
+  padding: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.nearby-item:hover {
+  box-shadow: var(--shadow-lift);
+}
+
+.nearby-item .nametag {
+  grid-area: tag;
+}
+
+.nearby-info {
+  grid-area: info;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.nearby-distance {
+  font-weight: 700;
+  color: var(--teal);
+}
+
+.nearby-spot {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.nearby-when {
+  font-size: 0.82rem;
+}
+
+.status-chip {
+  grid-area: chip;
+  justify-self: end;
+  align-self: end;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.loading-inline {
+  min-height: 30vh;
+}
+
+@media (max-width: 420px) {
+  .tab {
+    padding: 0.5rem 0.55rem;
+    font-size: 0.95rem;
+  }
+
+  .tabs {
+    gap: 0;
   }
 }

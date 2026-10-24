@@ -54,6 +54,23 @@ export type MeetupJoin = {
   user_id: string;
 }
 
+/** The signed-in user's own check-in. Nobody else can read this row. */
+export type Checkin = {
+  user_id: string;
+  lat: number | null;
+  lng: number | null;
+  spot: string | null;
+  updated_at: string;
+};
+
+/** One row from the nearby() function: a rough distance, never coordinates. */
+export type NearbyPerson = {
+  user_id: string;
+  distance_m: number | null;
+  spot: string | null;
+  checked_in_at: string;
+};
+
 /** How the signed-in user relates to another person. */
 export type Relation = 'none' | 'sent' | 'incoming' | 'connected';
 
@@ -99,9 +116,12 @@ export type Database = {
         Pick<Meetup, 'host_id' | 'title' | 'place' | 'when_at'> & Partial<Pick<Meetup, 'id' | 'details' | 'created_at'>>
       >;
       meetup_joins: Table<MeetupJoin, MeetupJoin>;
+      checkins: Table<Checkin, Omit<Checkin, 'updated_at'> & { updated_at?: string }>;
     };
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+      nearby: { Args: never; Returns: NearbyPerson[] };
+    };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

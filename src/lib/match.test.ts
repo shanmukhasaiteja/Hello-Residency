@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { contactHref, defaultMessage, parseTags, relation, score, suggestions } from './match.ts';
+import { contactHref, defaultMessage, distanceLabel, matchOfTheDay, parseTags, relation, score, suggestions, timeAgo } from './match.ts';
 import type { Intro, Profile } from './types.ts';
 
 const p = (id: string, extra: Partial<Profile> = {}): Profile => ({
@@ -49,4 +49,25 @@ test('contactHref only allows safe schemes', () => {
   assert.equal(contactHref('javascript:alert(1)'), null);
   assert.equal(contactHref('data:text/html,hi'), null);
   assert.equal(contactHref('@alice on Signal'), null);
+});
+
+test('matchOfTheDay is stable within a day, skips contacted people, prefers scorers', () => {
+  const me = p('me', { tags: ['ml'] });
+  const people = [me, p('x', { tags: ['ml'] }), p('y'), p('z', { tags: ['ml'] })];
+  const day = new Date(2026, 9, 24, 9);
+  const first = matchOfTheDay(me, people, [], day);
+  assert.ok(first && ['x', 'z'].includes(first.id));
+  assert.equal(matchOfTheDay(me, people, [], new Date(2026, 9, 24, 22))?.id, first?.id);
+  assert.equal(matchOfTheDay(me, people, [intro('me', 'x', 'pending'), intro('me', 'z', 'pending')], day)?.id, 'y');
+  assert.equal(matchOfTheDay(me, [me], [], day), null);
+});
+
+test('distanceLabel and timeAgo', () => {
+  assert.equal(distanceLabel(null), null);
+  assert.equal(distanceLabel(50), 'Within 50 m');
+  assert.equal(distanceLabel(350), 'About 350 m away');
+  assert.equal(distanceLabel(1250), 'About 1.3 km away');
+  const now = Date.parse('2026-10-24T12:00:00Z');
+  assert.equal(timeAgo('2026-10-24T11:48:00Z', now), '12 min ago');
+  assert.equal(timeAgo('2026-10-24T10:30:00Z', now), '1 h ago');
 });

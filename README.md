@@ -4,6 +4,14 @@ A mobile-first web app that helps PhD residency students meet each other: make a
 
 Stack: Vite + React + TypeScript, plain CSS tokens, Supabase (Postgres, Auth, Row Level Security). No custom server.
 
+## Features
+
+- **Name tags** with interests, what you're open to, and a private contact
+- **Discover**: search, filters, "People like you", and a **match of the day** that changes at midnight
+- **Nearby**: opt-in check-in ("Library café, 2nd floor", plus optional location) that lasts 2 hours. You only see others while you're checked in yourself, and they only ever see a distance rounded to 50 m, never your coordinates. Coordinates stay in a table nobody else can read; the `nearby()` database function does the math.
+- **Say hi and Inbox**: accept or decline; contacts unlock on accept
+- **Meetups**: post, join, leave
+
 ## Setup
 
 1. Create a Supabase project.
@@ -36,6 +44,7 @@ src/
   lib/errors.ts         Supabase errors in plain language
   hooks/useSession.ts   auth session
   hooks/useData.ts      all reads and writes; 30s polling, paused while typing or a modal is open
+  hooks/useNearby.ts    check-in, check-out and the nearby() call
   components/           AuthCard, NameTag, ProfileForm, ProfileModal, Discover, Inbox, Meetups, Modal, Toast
   styles/               tokens.css (section 7 palette) and app.css
 ```

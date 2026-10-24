@@ -132,3 +132,61 @@ export function contactHref(contact: string): string | null {
     return null;
   }
 }
+
+function hash(text: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619) >>> 0;
+  return h;
+}
+
+/** Local calendar day as YYYY-MM-DD, so the match changes at local midnight. */
+export function dayKey(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/**
+ * One person to meet today: picked from the top 10 not-yet-contacted matches, or from
+ * everyone not yet contacted when nobody scores. Stable for the whole day.
+ */
+export function matchOfTheDay(me: Profile, people: Profile[], intros: Intro[], date: Date): Profile | null {
+  const candidates = people
+    .filter((p) => p.id !== me.id && relation(me.id, p.id, intros) === 'none')
+    .sort((a, b) => a.id.localeCompare(b.id));
+  if (candidates.length === 0) return null;
+  const scored = candidates
+    .map((p) => ({ p, s: score(me, p) }))
+    .filter(({ s }) => s > 0)
+    .sort((a, b) => b.s - a.s || a.p.id.localeCompare(b.p.id))
+    .slice(0, 10)
+    .map(({ p }) => p);
+  const pool = scored.length > 0 ? scored : candidates;
+  return pool[hash(`${me.id}:${dayKey(date)}`) % pool.length];
+}
+
+/** A short reason to meet, shown with the match of the day. */
+export function matchReason(me: Profile, other: Profile): string {
+  const shared = sharedTags(me, other);
+  if (shared.length > 1) return `You both like ${shared.slice(0, -1).join(', ')} and ${shared[shared.length - 1]}.`;
+  if (shared.length === 1) return `You both like ${shared[0]}.`;
+  const openTo = other.open_to.find((o) => me.open_to.includes(o));
+  if (openTo) return `You're both up for: ${openTo.toLowerCase()}.`;
+  if (norm(me.cohort) && norm(me.cohort) === norm(other.cohort)) return "You're in the same cohort.";
+  if (norm(me.program) && norm(me.program) === norm(other.program)) return "You're in the same program.";
+  return 'Someone new to meet today.';
+}
+
+/** Rough distance label. Distances arrive pre-rounded to 50 m by the server. */
+export function distanceLabel(meters: number | null): string | null {
+  if (meters === null) return null;
+  if (meters <= 50) return 'Within 50 m';
+  if (meters < 1000) return `About ${meters} m away`;
+  return `About ${(meters / 1000).toFixed(1)} km away`;
+}
+
+export function timeAgo(iso: string, now: number = Date.now()): string {
+  const minutes = Math.max(0, Math.round((now - new Date(iso).getTime()) / 60000));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  return `${Math.floor(minutes / 60)} h ago`;
+}

@@ -1,6 +1,6 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 import { OPEN_TO_OPTIONS, type Intro, type Profile, type Relation } from '../lib/types';
-import { matchesQuery, popularTags, relation, searchText, sharedTags, suggestions } from '../lib/match';
+import { matchesQuery, matchOfTheDay, matchReason, popularTags, relation, searchText, sharedTags, suggestions } from '../lib/match';
 import { NameTag } from './NameTag';
 
 const STATUS_LABEL: Record<Relation, string> = {
@@ -33,7 +33,12 @@ export function Discover({ me, profiles, intros, onOpen }: DiscoverProps) {
   }, [others, intros, me.id]);
 
   const filtering = deferredQuery !== '' || openTo !== null || tag !== null;
-  const likeYou = useMemo(() => (filtering ? [] : suggestions(me, others, intros)), [filtering, me, others, intros]);
+  const today = new Date().toDateString();
+  const match = useMemo(() => (filtering ? null : matchOfTheDay(me, others, intros, new Date(today))), [filtering, me, others, intros, today]);
+  const likeYou = useMemo(
+    () => (filtering ? [] : suggestions(me, others, intros).filter((p) => p.id !== match?.id)),
+    [filtering, me, others, intros, match],
+  );
 
   const results = useMemo(
     () =>
@@ -115,6 +120,23 @@ export function Discover({ me, profiles, intros, onOpen }: DiscoverProps) {
           </div>
         )}
       </div>
+
+      {match && (
+        <div className="motd">
+          <div className="motd-text">
+            <p className="motd-label">Your match of the day</p>
+            <h2 className="motd-name">{match.name}</h2>
+            <p className="motd-reason">{matchReason(me, match)}</p>
+            <button type="button" className="btn btn-primary" onClick={() => onOpen(match)}>
+              Say hi to {match.name.split(' ')[0]}
+            </button>
+            <p className="motd-foot">A new match every day.</p>
+          </div>
+          <button type="button" className="motd-tag" onClick={() => onOpen(match)} aria-label={`Open ${match.name}'s name tag`}>
+            <NameTag profile={match} size="card" highlight={sharedTags(me, match)} />
+          </button>
+        </div>
+      )}
 
       {likeYou.length > 0 && (
         <>

@@ -99,3 +99,63 @@ create policy "meetups delete" on public.meetups for delete to authenticated usi
 create policy "joins read" on public.meetup_joins for select to authenticated using (true);
 create policy "joins insert" on public.meetup_joins for insert to authenticated with check (user_id = auth.uid());
 create policy "joins delete" on public.meetup_joins for delete to authenticated using (user_id = auth.uid());
+
+-- Nearby: opt-in check-ins that expire after 2 hours.
+-- Coordinates are never readable by other users. Only the nearby() function reads them,
+-- and it returns distance rounded up to 50 m buckets, only to people who are checked in too.
+create table public.checkins (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  lat double precision check (lat between -90 and 90),
+  lng double precision check (lng between -180 and 180),
+  spot text check (spot is null or char_length(spot) <= 60),
+  updated_at timestamptz not null default now(),
+  check ((lat is null) = (lng is null)),
+  check (lat is not null or spot is not null)
+);
+
+revoke all on public.checkins from anon;
+grant select, insert, update, delete on public.checkins to authenticated;
+alter table public.checkins enable row level security;
+create policy "checkins read own" on public.checkins for select to authenticated using (user_id = auth.uid());
+create policy "checkins insert own" on public.checkins for insert to authenticated with check (user_id = auth.uid());
+create policy "checkins update own" on public.checkins for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "checkins delete own" on public.checkins for delete to authenticated using (user_id = auth.uid());
+
+-- The server clock decides when a check-in expires, not the client.
+create function public.touch_checkin() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  new.updated_at := now();
+  return new;
+end $$;
+create trigger checkins_touch before insert or update on public.checkins
+  for each row execute function public.touch_checkin();
+
+create function public.nearby()
+returns table (user_id uuid, distance_m integer, spot text, checked_in_at timestamptz)
+language sql stable security definer set search_path = '' as $$
+  with me as (
+    select c.lat, c.lng from public.checkins c
+    where c.user_id = auth.uid() and c.updated_at > now() - interval '2 hours'
+  )
+  select c.user_id,
+         case when d.dist is null then null else (greatest(1, ceil(d.dist / 50.0)) * 50)::integer end,
+         c.spot,
+         c.updated_at
+  from me
+  cross join public.checkins c
+  cross join lateral (
+    select case when me.lat is null or c.lat is null then null
+      else 2 * 6371000 * asin(least(1, sqrt(
+        power(sin(radians(c.lat - me.lat) / 2), 2)
+        + cos(radians(me.lat)) * cos(radians(c.lat)) * power(sin(radians(c.lng - me.lng) / 2), 2)
+      ))) end as dist
+  ) d
+  where c.user_id <> auth.uid()
+    and c.updated_at > now() - interval '2 hours'
+    and (d.dist is null or d.dist <= 5000)
+  order by d.dist nulls last, c.updated_at desc
+  limit 100;
+$$;
+revoke execute on function public.nearby() from public, anon;
+grant execute on function public.nearby() to authenticated;
