@@ -10,6 +10,8 @@ export function friendlyError(error: unknown, fallback = 'Something went wrong. 
   const message = e.message ?? (typeof error === 'string' ? error : '');
   const lower = message.toLowerCase();
 
+  if (e.code === '23503' || lower.includes('violates foreign key constraint'))
+    return "That person or meetup isn't on Hello Residency anymore. We've refreshed the list for you.";
   if (e.code === '23505') return 'You already said hi to this person. Check your Inbox for their reply.';
   if (e.code === '42501' || lower.includes('row-level security')) return "You don't have permission to do that. Sign in again and retry.";
   if (e.code === '23514' || lower.includes('violates check constraint')) return 'One of the fields is empty or too long. Shorten it and try again.';

@@ -51,6 +51,12 @@ export function useData(userId: string, { notify, isPaused }: Options) {
 
   const fail = useCallback((error: unknown, fallback?: string) => {
     notifyRef.current(friendlyError(error, fallback), 'error');
+    // 23503: the person or meetup was deleted since this phone last did a full reload.
+    // Reload everything now so it disappears instead of failing again.
+    if ((error as { code?: string } | null)?.code === '23503') {
+      lastFull.current = 0;
+      void refreshRef.current();
+    }
     return false;
   }, []);
 
