@@ -14,6 +14,7 @@ import { Modal } from './components/Modal';
 import { NameTag } from './components/NameTag';
 import { ProfileForm } from './components/ProfileForm';
 import { ProfileModal } from './components/ProfileModal';
+import { ChatThread } from './components/ChatThread';
 import { Toasts, useToasts } from './components/Toast';
 import { Icon } from './components/Icon';
 import { celebrate } from './lib/celebrate';
@@ -47,8 +48,9 @@ function isTyping(): boolean {
 function Shell({ userId, email, notify }: { userId: string; email: string; notify: Notify }) {
   const [tab, setTab] = useState<Tab>('discover');
   const [openId, setOpenId] = useState<string | null>(null);
+  const [chatId, setChatId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const modalOpen = openId !== null || editing;
+  const modalOpen = openId !== null || chatId !== null || editing;
   const isPaused = useCallback(() => modalOpen || isTyping(), [modalOpen]);
   const data = useData(userId, { notify, isPaused });
   const nearby = useNearby(userId, { notify, isPaused, active: tab === 'nearby' });
@@ -57,7 +59,9 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
   // People you blocked stay out of every list; people who blocked you are already hidden by RLS.
   const blockedIds = new Set(data.blocks.map((b) => b.blocked_id));
   const people = blockedIds.size === 0 ? data.profiles : data.profiles.filter((p) => !blockedIds.has(p.id));
-  const pendingCount = data.intros.filter((i) => i.to_id === userId && i.status === 'pending').length;
+  let unreadCount = 0;
+  for (const n of data.unread.values()) unreadCount += n;
+  const pendingCount = data.intros.filter((i) => i.to_id === userId && i.status === 'pending').length + unreadCount;
 
   async function signOut() {
     const { error } = await supabase.auth.signOut();
@@ -102,6 +106,7 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
   }
 
   const openPerson = openId ? people.find((p) => p.id === openId) : undefined;
+  const chatPerson = chatId ? people.find((p) => p.id === chatId) : undefined;
   const blockedPeople = data.profiles.filter((p) => blockedIds.has(p.id));
   const tabs: { id: Tab; label: string }[] = [
     { id: 'discover', label: 'Discover' },
@@ -139,7 +144,7 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
               <Icon name={t.id} />
               <span className="tab-label">{t.label}</span>
               {t.id === 'inbox' && pendingCount > 0 && (
-                <span className="badge" aria-label={`${pendingCount} waiting`}>
+                <span className="badge" aria-label={`${pendingCount} new`}>
                   {pendingCount}
                 </span>
               )}
@@ -167,6 +172,8 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
             }}
             onOpen={(p) => setOpenId(p.id)}
             onDiscover={() => switchTab('discover')}
+            unread={data.unread}
+            onMessage={(p) => setChatId(p.id)}
           />
         )}
         {tab === 'meetups' && (
@@ -225,7 +232,34 @@ function Shell({ userId, email, notify }: { userId: string; email: string; notif
             notify('Thanks for telling us. The organizers will take a look.');
             return true;
           }}
+          onMessage={() => {
+            setOpenId(null);
+            setChatId(openPerson.id);
+          }}
           onClose={() => setOpenId(null)}
+        />
+      )}
+
+      {chatPerson && (
+        <ChatThread
+          key={chatPerson.id}
+          me={me}
+          person={chatPerson}
+          intro={data.intros.find(
+            (i) =>
+              i.status === 'accepted' &&
+              ((i.from_id === me.id && i.to_id === chatPerson.id) || (i.to_id === me.id && i.from_id === chatPerson.id)),
+          )}
+          notify={notify}
+          onRead={() => data.clearUnread(chatPerson.id)}
+          onOpenProfile={() => {
+            setChatId(null);
+            setOpenId(chatPerson.id);
+          }}
+          onClose={() => {
+            setChatId(null);
+            void data.refresh();
+          }}
         />
       )}
 

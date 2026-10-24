@@ -10,10 +10,12 @@ interface ModalProps {
   children: ReactNode;
   /** Hide the visible heading but keep it for screen readers. */
   hideTitle?: boolean;
+  /** Extra class on the dialog, for layouts like chat. */
+  className?: string;
 }
 
 /** Accessible dialog: closes on Escape and overlay click, traps focus, restores focus on close. */
-export function Modal({ title, onClose, children, hideTitle }: ModalProps) {
+export function Modal({ title, onClose, children, hideTitle, className }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -61,7 +63,7 @@ export function Modal({ title, onClose, children, hideTitle }: ModalProps) {
 
   return createPortal(
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" ref={dialogRef} tabIndex={-1}>
+      <div className={className ? `modal ${className}` : 'modal'} role="dialog" aria-modal="true" aria-labelledby="modal-title" ref={dialogRef} tabIndex={-1}>
         <div className="modal-head">
           <h2 id="modal-title" className={hideTitle ? 'sr-only' : undefined}>
             {title}

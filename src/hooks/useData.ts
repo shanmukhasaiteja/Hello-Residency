@@ -24,14 +24,22 @@ export interface AppData {
   joins: MeetupJoin[];
   /** People the signed-in user has blocked. */
   blocks: Block[];
+  /** Unread chat messages, counted per sender. */
+  unread: Map<string, number>;
 }
 
-const EMPTY: AppData = { profiles: [], intros: [], contacts: new Map(), meetups: [], joins: [], blocks: [] };
+const EMPTY: AppData = { profiles: [], intros: [], contacts: new Map(), meetups: [], joins: [], blocks: [], unread: new Map() };
 
 interface Options {
   notify: Notify;
   /** Polling skips a refresh while this returns true (typing, modal open). */
   isPaused: () => boolean;
+}
+
+function countBySender(rows: { sender_id: string }[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const r of rows) counts.set(r.sender_id, (counts.get(r.sender_id) ?? 0) + 1);
+  return counts;
 }
 
 function orNull(value: string): string | null {
@@ -109,7 +117,7 @@ export function useData(userId: string, { notify, isPaused }: Options) {
     inFlight.current = true;
     try {
       const cutoff = new Date(Date.now() - MEETUP_GRACE_MS).toISOString();
-      const [profiles, intros, meetups, blocks] = await Promise.all([
+      const [profiles, intros, meetups, blocks, unreadRes] = await Promise.all([
         syncProfiles(),
         supabase
           .from('intros')
@@ -118,8 +126,9 @@ export function useData(userId: string, { notify, isPaused }: Options) {
           .order('created_at', { ascending: false }),
         supabase.from('meetups').select('*').gte('when_at', cutoff).order('when_at', { ascending: true }),
         supabase.from('blocks').select('*').eq('blocker_id', userId),
+        supabase.from('messages').select('sender_id').eq('recipient_id', userId).is('read_at', null).limit(1000),
       ]);
-      const firstError = profiles.error ?? intros.error ?? meetups.error ?? blocks.error;
+      const firstError = profiles.error ?? intros.error ?? meetups.error ?? blocks.error ?? unreadRes.error;
       if (firstError) {
         fail(firstError, "Couldn't load the latest data. Pull to refresh or try again.");
         return;
@@ -146,6 +155,7 @@ export function useData(userId: string, { notify, isPaused }: Options) {
         meetups: meetups.data ?? [],
         joins: joinsRes?.data ?? [],
         blocks: blocks.data ?? [],
+        unread: countBySender(unreadRes.data ?? []),
       }));
       setLoaded(true);
     } catch (error) {
@@ -376,9 +386,20 @@ export function useData(userId: string, { notify, isPaused }: Options) {
     [fail],
   );
 
+  /** Called by an open chat after it marks messages read, so badges clear right away. */
+  const clearUnread = useCallback((senderId: string) => {
+    setData((d) => {
+      if (!d.unread.has(senderId)) return d;
+      const unread = new Map(d.unread);
+      unread.delete(senderId);
+      return { ...d, unread };
+    });
+  }, []);
+
   return {
     ...data,
     loaded,
+    clearUnread,
     refresh,
     saveProfile,
     uploadPhoto,

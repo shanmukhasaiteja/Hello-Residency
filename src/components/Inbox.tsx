@@ -9,12 +9,15 @@ interface InboxProps {
   profiles: Profile[];
   intros: Intro[];
   contacts: Map<string, string>;
+  /** Unread chat messages per sender. */
+  unread: Map<string, number>;
+  onMessage: (person: Profile) => void;
   onRespond: (introId: string, status: 'accepted' | 'declined', reply: string) => Promise<boolean>;
   onOpen: (person: Profile) => void;
   onDiscover: () => void;
 }
 
-export function Inbox({ me, profiles, intros, contacts, onRespond, onOpen, onDiscover }: InboxProps) {
+export function Inbox({ me, profiles, intros, contacts, unread, onMessage, onRespond, onOpen, onDiscover }: InboxProps) {
   const byId = new Map(profiles.map((p) => [p.id, p]));
 
   const waitingForYou = intros.filter((i) => i.to_id === me.id && i.status === 'pending' && byId.has(i.from_id));
@@ -61,12 +64,14 @@ export function Inbox({ me, profiles, intros, contacts, onRespond, onOpen, onDis
         </ul>
       )}
 
-      <h2 className="section-title">Connections</h2>
+      <h2 className="section-title">
+        Connections {unreadTotal(unread) > 0 && <span className="count">{unreadTotal(unread)} new</span>}
+      </h2>
       {connections.length === 0 ? (
         <p className="muted">When someone accepts your hi, or you accept theirs, they'll appear here with their contact.</p>
       ) : (
         <ul className="inbox-list">
-          {connections.map(({ person, intro }) => (
+          {[...connections].sort((x, y) => (unread.get(y.person.id) ?? 0) - (unread.get(x.person.id) ?? 0)).map(({ person, intro }) => (
             <li key={person.id} className="card inbox-item">
               <button type="button" className="inbox-person" onClick={() => onOpen(person)}>
                 <NameTag profile={person} size="mini" />
@@ -81,6 +86,16 @@ export function Inbox({ me, profiles, intros, contacts, onRespond, onOpen, onDis
                   </p>
                 )}
                 <ContactLine contact={contacts.get(person.id)} />
+                <div className="btn-row chat-cta">
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => onMessage(person)}>
+                    <span aria-hidden="true">💬</span> Message
+                    {(unread.get(person.id) ?? 0) > 0 && (
+                      <span className="badge" aria-label={`${unread.get(person.id)} unread`}>
+                        {unread.get(person.id)}
+                      </span>
+                    )}
+                  </button>
+                </div>
               </div>
             </li>
           ))}
@@ -112,6 +127,12 @@ export function Inbox({ me, profiles, intros, contacts, onRespond, onOpen, onDis
       )}
     </section>
   );
+}
+
+function unreadTotal(unread: Map<string, number>): number {
+  let total = 0;
+  for (const n of unread.values()) total += n;
+  return total;
 }
 
 interface IncomingItemProps {

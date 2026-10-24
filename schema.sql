@@ -449,3 +449,63 @@ language sql stable security definer set search_path = '' as $$
   order by d.dist nulls last, c.updated_at desc
   limit 100;
 $$;
+
+-- Chat between connected people.
+-- Only the two people in a conversation can read it; you can only write to someone you're
+-- connected with (an accepted intro in either direction) and haven't blocked either way.
+
+create table public.messages (
+  id uuid primary key default gen_random_uuid(),
+  sender_id uuid not null references public.profiles(id) on delete cascade,
+  recipient_id uuid not null references public.profiles(id) on delete cascade,
+  body text not null check (char_length(btrim(body)) between 1 and 1000),
+  created_at timestamptz not null default now(),
+  read_at timestamptz,
+  check (sender_id <> recipient_id)
+);
+create index messages_pair_idx on public.messages (sender_id, recipient_id, created_at);
+create index messages_unread_idx on public.messages (recipient_id, read_at) where read_at is null;
+
+revoke all on public.messages from anon, authenticated;
+grant select, insert on public.messages to authenticated;
+grant update (read_at) on public.messages to authenticated;
+alter table public.messages enable row level security;
+
+create function public.are_connected(a uuid, b uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1 from public.intros i
+    where i.status = 'accepted'
+      and ((i.from_id = a and i.to_id = b) or (i.from_id = b and i.to_id = a))
+  );
+$$;
+revoke execute on function public.are_connected(uuid, uuid) from public, anon;
+grant execute on function public.are_connected(uuid, uuid) to authenticated;
+
+create policy "messages read own" on public.messages for select to authenticated
+  using ((sender_id = (select auth.uid()) or recipient_id = (select auth.uid())) and not public.blocked_either(sender_id, recipient_id));
+create policy "messages send to connections" on public.messages for insert to authenticated
+  with check (
+    sender_id = (select auth.uid())
+    and public.are_connected(sender_id, recipient_id)
+    and not public.blocked_either(sender_id, recipient_id)
+  );
+-- Recipients may only mark messages read (column grant above limits updates to read_at).
+create policy "messages mark read" on public.messages for update to authenticated
+  using (recipient_id = (select auth.uid())) with check (recipient_id = (select auth.uid()));
+
+-- Server sets the time and unread state, and limits sending to 20 messages a minute.
+create function public.messages_before_insert() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  new.created_at := now();
+  new.read_at := null;
+  new.body := btrim(new.body);
+  if (select count(*) from public.messages m
+      where m.sender_id = new.sender_id and m.created_at > now() - interval '1 minute') >= 20 then
+    raise exception 'You''re sending messages too fast. Wait a minute and try again.' using errcode = 'P0001';
+  end if;
+  return new;
+end $$;
+create trigger messages_before_insert before insert on public.messages
+  for each row execute function public.messages_before_insert();

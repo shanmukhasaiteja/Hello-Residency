@@ -99,6 +99,16 @@ export type NearbyPerson = {
   checked_in_at: string;
 };
 
+/** A chat message between two connected people. */
+export type Message = {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  body: string;
+  created_at: string;
+  read_at: string | null;
+}
+
 /** How the signed-in user relates to another person. */
 export type Relation = 'none' | 'sent' | 'incoming' | 'connected';
 
@@ -162,6 +172,11 @@ export type Database = {
       reports: Table<
         { id: string; reporter_id: string; reported_id: string; reason: string; created_at: string },
         { reported_id: string; reason: string; reporter_id?: string }
+      >;
+      messages: Table<
+        Message,
+        Pick<Message, 'sender_id' | 'recipient_id' | 'body'> & Partial<Pick<Message, 'id' | 'created_at' | 'read_at'>>,
+        Partial<Pick<Message, 'read_at'>>
       >;
       checkins: Table<Checkin, Omit<Checkin, 'updated_at' | 'visibility'> & Partial<Pick<Checkin, 'updated_at' | 'visibility'>>>;
     };

@@ -17,6 +17,7 @@ interface ProfileModalProps {
   onSendIntro: (toId: string, message: string) => Promise<boolean>;
   onRespond: (introId: string, status: 'accepted' | 'declined', reply: string) => Promise<boolean>;
   onBlock: (personId: string) => Promise<boolean>;
+  onMessage: () => void;
   onReport: (personId: string, reason: string, alsoBlock: boolean) => Promise<boolean>;
   onClose: () => void;
 }
@@ -30,6 +31,7 @@ export function ProfileModal({
   onSendIntro,
   onRespond,
   onBlock,
+  onMessage,
   onReport,
   onClose,
 }: ProfileModalProps) {
@@ -162,6 +164,9 @@ export function ProfileModal({
           <div>
             <p className="status-note status-ok">You're connected.</p>
             <ContactLine contact={contact} />
+            <button type="button" className="btn btn-primary btn-block chat-open" onClick={onMessage}>
+              <span aria-hidden="true">💬</span> Message {person.name.split(' ')[0]}
+            </button>
           </div>
         )}
       </div>
